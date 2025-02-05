@@ -134,6 +134,7 @@
     color: #4335AD;
     font-size: 16px;
     cursor: pointer;
+    padding-bottom: 10px;
 }
 
 .signup-option {
@@ -180,6 +181,7 @@
     }
 
     .image-section {
+        display: none; 
         display: none;
     }
 
@@ -200,6 +202,8 @@
 
     .form-section {
         width: 100%;
+        padding: 60px 20px 20px; 
+        min-height: 100vh; 
         padding: 60px 20px 20px;
         min-height: 100vh;
         display: flex;
