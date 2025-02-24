@@ -84,6 +84,22 @@
     min-height: 100vh; 
 }
 
+/* Message Styles */
+.message {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.success {
+    color: green;
+}
+
+.error {
+    color: red;
+}
+
 /* Form Box */
 .form-box {
     background-color: #9cc5a7;
@@ -186,9 +202,10 @@
     }
 
     .navbar {
-        width: 90%;
+        display: none;
+        /*width: 90%;
         top: 10px;
-        padding: 8px 15px;
+        padding: 8px 15px; */
     }
 
     .nav-links {
