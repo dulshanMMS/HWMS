@@ -163,7 +163,6 @@
     color: #4335AD;
 }
 
-
 /* For Tablets */
 @media (max-width: 1024px) {
     .navbar {
@@ -199,6 +198,7 @@
 
     .image-section {
         display: none; 
+        display: none;
     }
 
     .navbar {
@@ -221,6 +221,8 @@
         width: 100%;
         padding: 60px 20px 20px; 
         min-height: 100vh; 
+        padding: 60px 20px 20px;
+        min-height: 100vh;
         display: flex;
         align-items: center;
     }
