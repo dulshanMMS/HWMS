@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Login.css';
 
 const Login = () => {
@@ -8,6 +9,8 @@ const Login = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+    
+    const navigate = useNavigate(); // Initialize useNavigate
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -16,11 +19,7 @@ const Login = () => {
             ? 'http://localhost:5000/api/auth/signin' 
             : 'http://localhost:5000/api/auth/signup';
 
-        const requestData = {
-            email,
-            password,
-            ...(currentState === 'Sign Up' && { confirmPassword })
-        };
+        const requestData = { email, password };
 
         try {
             const response = await fetch(endpoint, {
@@ -30,18 +29,17 @@ const Login = () => {
             });
 
             const data = await response.json();
-            console.log('Response Status:', response.status);
-            console.log('Response Data:', data);
 
             if (response.ok) {
                 setMessage(`Success: ${data.message || 'Operation successful'}`);
                 setMessageType('success');
-                
-                if (currentState === 'Sign Up') {
-                    localStorage.setItem('userEmail', email);
-                    localStorage.setItem('userPassword', password);
+
+                if (currentState === 'Sign In') {
+                    // Save token & redirect to dashboard
+                    localStorage.setItem('token', data.token);
+                    navigate('/admin');  // Redirect to admin dashboard
                 }
-                
+
                 setEmail('');
                 setPassword('');
                 setConfirmPassword('');
@@ -50,7 +48,6 @@ const Login = () => {
                 setMessageType('error');
             }
         } catch (error) {
-            console.error('Fetch Error:', error);
             setMessage('Something went wrong. Please try again.');
             setMessageType('error');
         }
