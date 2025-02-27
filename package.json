@@ -18,7 +18,8 @@
     "mongoose": "^8.10.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^7.1.5"
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.27",
