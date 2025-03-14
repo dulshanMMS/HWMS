@@ -7,7 +7,7 @@ const AdminDashboard = () => {
     <div className="dashboard-container">
       {/* Sidebar */}
       <div className="sidebar">
-        <h2 className="logo">WILEY BOOKING</h2>
+        <h2 className="logo">ADMIN DASHBOARD</h2>
         <nav>
           <ul>
             <li className="active"><FaHome /> Dashboard</li>
