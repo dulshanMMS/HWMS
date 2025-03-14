@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import './Login.css';
 
 const Login = () => {
     const [currentState, setCurrentState] = useState('Sign In');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState(''); // 'success' or 'error'
-    
-    const navigate = useNavigate(); // Initialize useNavigate
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,7 +25,9 @@ const Login = () => {
             ? 'http://localhost:5000/api/auth/signin' 
             : 'http://localhost:5000/api/auth/signup';
 
-        const requestData = { email, password };
+        const requestData = currentState === 'Sign In' 
+            ? { username, email, password }
+            : { firstName, lastName, username, email, password, confirmPassword };
 
         try {
             const response = await fetch(endpoint, {
@@ -35,11 +43,18 @@ const Login = () => {
                 setMessageType('success');
 
                 if (currentState === 'Sign In') {
-                    // Save token & redirect to dashboard
                     localStorage.setItem('token', data.token);
-                    navigate('/admin');  // Redirect to admin dashboard
+                    
+                    if (data.isAdmin) {
+                        navigate('/admin');
+                    } else {
+                        navigate('/user');
+                    }
                 }
 
+                setFirstName('');
+                setLastName('');
+                setUsername('');
                 setEmail('');
                 setPassword('');
                 setConfirmPassword('');
@@ -70,28 +85,63 @@ const Login = () => {
                         <h2>{currentState}</h2>
                         {message && <p className={`message ${messageType}`}>{message}</p>}
                         <form onSubmit={handleSubmit} className='login-form'>
+                            {currentState === 'Sign Up' && (
+                                <>
+                                    <input 
+                                        type='text' 
+                                        placeholder='First Name' 
+                                        value={firstName} 
+                                        onChange={(e) => setFirstName(e.target.value)} 
+                                        required 
+                                    />
+                                    <input 
+                                        type='text' 
+                                        placeholder='Last Name' 
+                                        value={lastName} 
+                                        onChange={(e) => setLastName(e.target.value)} 
+                                        required 
+                                    />
+                                </>
+                            )}
                             <input 
                                 type='email' 
                                 placeholder='Working Email' 
-                                required 
                                 value={email} 
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(e) => setEmail(e.target.value)} 
+                                required 
                             />
                             <input 
-                                type='password' 
-                                placeholder='Password' 
+                                type='text' 
+                                placeholder='Username' 
+                                value={username} 
+                                onChange={(e) => setUsername(e.target.value)} 
                                 required 
-                                value={password} 
-                                onChange={(e) => setPassword(e.target.value)}
                             />
-                            {currentState === 'Sign Up' && (
+                            <div className='password-container'>
                                 <input 
-                                    type='password' 
-                                    placeholder='Confirm Password' 
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder='Password' 
+                                    value={password} 
+                                    onChange={(e) => setPassword(e.target.value)} 
                                     required 
-                                    value={confirmPassword} 
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
                                 />
+                                <span className='eye-icon' onClick={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <FaEye /> : <FaEyeSlash />}
+                                </span>
+                            </div>
+                            {currentState === 'Sign Up' && (
+                                <div className='password-container'>
+                                    <input 
+                                        type={showConfirmPassword ? 'text' : 'password'}
+                                        placeholder='Confirm Password' 
+                                        value={confirmPassword} 
+                                        onChange={(e) => setConfirmPassword(e.target.value)} 
+                                        required 
+                                    />
+                                    <span className='eye-icon' onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                        {showConfirmPassword ? <FaEye /> : <FaEyeSlash />}
+                                    </span>
+                                </div>
                             )}
                             <div className='options'>
                                 {currentState === 'Sign In' && (

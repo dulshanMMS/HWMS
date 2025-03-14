@@ -5,6 +5,7 @@ import User from "../models/User.js";
 import verifyToken, { validateEmail, validateUsername, validatePassword } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+const adminEmails = ["wileyhwms@test.com"];
 
 // User Signup
 router.post("/signup", async (req, res) => {
@@ -72,8 +73,9 @@ router.post("/signin", async (req, res) => {
             return res.status(400).json({ error: "Invalid credentials" });
         }
 
+        const isAdmin = adminEmails.includes(user.email);
         const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "1h" });
-        res.status(200).json({ message: `Hello, ${user.username}!`, token });
+        res.status(200).json({ message: `Hello, ${user.username}!`, token , isAdmin });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Server error" });
