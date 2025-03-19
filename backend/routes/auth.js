@@ -5,7 +5,7 @@ import User from "../models/User.js";
 import verifyToken, { validateEmail, validateUsername, validatePassword } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
-const adminEmails = ["wileyhwms@test.com"];
+//const adminEmails = ["wileyhwms@test.com"];
 
 // User Signup
 router.post("/signup", async (req, res) => {
@@ -42,7 +42,8 @@ router.post("/signup", async (req, res) => {
             lastName,
             username,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            role: "user"
         });
 
         await newUser.save();
@@ -73,9 +74,14 @@ router.post("/signin", async (req, res) => {
             return res.status(400).json({ error: "Invalid credentials" });
         }
 
-        const isAdmin = adminEmails.includes(user.email);
-        const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "1h" });
-        res.status(200).json({ message: `Hello, ${user.username}!`, token , isAdmin });
+        /*const isAdmin = adminEmails.includes(user.email); */
+        const token = jwt.sign({ id: user._id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        
+        if (user.role === "admin") {
+            res.status(200).json({ message: `Hello, ${user.username}!`, role: "admin", token });
+          } else {
+            res.status(200).json({ message: `Hello, ${user.username}!`, role: "user", token });
+          }
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Server error" });
