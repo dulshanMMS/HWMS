@@ -6,7 +6,46 @@ const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+
     role: { type: String, enum: ["admin", "user"], default: "user" },
+    notificationPreferences: {
+        email: {
+            seat_booking: {
+                type: Boolean,
+                default: true
+            },
+            parking_booking: {
+                type: Boolean,
+                default: true
+            },
+            important: {
+                type: Boolean,
+                default: true
+            },
+            general: {
+                type: Boolean,
+                default: false
+            }
+        },
+        inApp: {
+            seat_booking: {
+                type: Boolean,
+                default: true
+            },
+            parking_booking: {
+                type: Boolean,
+                default: true
+            },
+            important: {
+                type: Boolean,
+                default: true
+            },
+            general: {
+                type: Boolean,
+                default: true
+            }
+        }
+    }
 });
 
 export default mongoose.model("User", UserSchema);
