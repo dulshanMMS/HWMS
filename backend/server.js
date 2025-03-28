@@ -32,7 +32,7 @@ mongoose.connect(process.env.MONGO_URI, {
 io.on("connection", (socket) => {
     console.log(" User connected:", socket.id);
 });
-
+   
 app.use("/api/parking", parkingRoutes); // Use API routes
 
 // Start Server
