@@ -22,6 +22,11 @@ export const io = new Server(server, { cors: { origin: "*" } }); // Enable WebSo
 // Routes
 app.use("/api/auth", authRoutes);
 
+// Test Route to Check Server Status
+app.get("/", (req, res) => {
+    res.send("API is running...");
+});
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
