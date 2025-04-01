@@ -2,10 +2,9 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import verifyToken, { validateEmail, validateUsername, validatePassword } from "../middleware/authMiddleware.js";
+import verifyToken, { isAdmin, validateEmail, validateUsername, validatePassword } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
-//const adminEmails = ["wileyhwms@test.com"];
 
 // User Signup
 router.post("/signup", async (req, res) => {
@@ -91,6 +90,16 @@ router.post("/signin", async (req, res) => {
 // Verify Token
 router.get("/protected", verifyToken, (req, res) => {
     res.status(200).json({ message: "This is a protected route!", user: req.user });
+});
+
+// User Dashboard (Only Logged-in Users)
+router.get("/user", verifyToken, (req, res) => {
+    res.json({ message: "Welcome to the User Dashboard", user: req.user });
+});
+
+// Admin Dashboard (Only Admins)
+router.get("/admin", verifyToken, isAdmin, (req, res) => {
+    res.json({ message: "Welcome to the Admin Dashboard", user: req.user });
 });
 
 export default router;
