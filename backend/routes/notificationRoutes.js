@@ -1,11 +1,12 @@
-const express = require('express');
+import express from 'express';
+import Notification from '../models/Notification.js';
+import NotificationService from '../services/notificationService.js';
+import verifyToken, { isAdmin } from '../middleware/authMiddleware.js';
+
 const router = express.Router();
-const Notification = require('../models/Notification');
-const NotificationService = require('../services/notificationService');
-const auth = require('../middleware/auth');
 
 // Get all notifications for a user
-router.get('/user', auth, async (req, res) => {
+router.get('/user', verifyToken, async (req, res) => {
   try {
     const notifications = await Notification.find({ 
       recipient: req.user.id,
@@ -20,7 +21,7 @@ router.get('/user', auth, async (req, res) => {
 });
 
 // Mark a notification as read
-router.put('/:id/mark-read', auth, async (req, res) => {
+router.put('/:id/mark-read', verifyToken, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
     
@@ -43,7 +44,7 @@ router.put('/:id/mark-read', auth, async (req, res) => {
 });
 
 // Delete a notification (soft delete)
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
     
@@ -66,7 +67,7 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // Get unread notification count
-router.get('/unread-count', auth, async (req, res) => {
+router.get('/unread-count', verifyToken, async (req, res) => {
   try {
     const count = await Notification.countDocuments({
       recipient: req.user.id,
@@ -81,7 +82,7 @@ router.get('/unread-count', auth, async (req, res) => {
 });
 
 // Mark all notifications as read
-router.put('/mark-all-read', auth, async (req, res) => {
+router.put('/mark-all-read', verifyToken, async (req, res) => {
   try {
     await Notification.updateMany(
       { 
@@ -99,7 +100,7 @@ router.put('/mark-all-read', auth, async (req, res) => {
 });
 
 // Get user notification preferences
-router.get('/preferences', auth, async (req, res) => {
+router.get('/preferences', verifyToken, async (req, res) => {
   try {
     const preferences = await NotificationService.getNotificationPreferences(req.user.id);
     res.json(preferences);
@@ -109,7 +110,7 @@ router.get('/preferences', auth, async (req, res) => {
 });
 
 // Update user notification preferences
-router.put('/preferences', auth, async (req, res) => {
+router.put('/preferences', verifyToken, async (req, res) => {
   try {
     const preferences = await NotificationService.updateNotificationPreferences(
       req.user.id,
@@ -122,12 +123,8 @@ router.put('/preferences', auth, async (req, res) => {
 });
 
 // Send a notification (admin only)
-router.post('/send', auth, async (req, res) => {
+router.post('/send', verifyToken, isAdmin, async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
     const { recipient, title, message, type, emailSubject } = req.body;
     const notification = await NotificationService.sendNotification({
       recipient,
@@ -144,12 +141,8 @@ router.post('/send', auth, async (req, res) => {
 });
 
 // Send bulk notifications (admin only)
-router.post('/send-bulk', auth, async (req, res) => {
+router.post('/send-bulk', verifyToken, isAdmin, async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
     const { recipients, title, message, type, emailSubject } = req.body;
     const notifications = await NotificationService.sendBulkNotifications({
       recipients,
@@ -165,4 +158,19 @@ router.post('/send-bulk', auth, async (req, res) => {
   }
 });
 
-module.exports = router; 
+// Get all notifications (admin route)
+router.get('/admin/all', verifyToken, isAdmin, async (req, res) => {
+  try {
+    console.log('Fetching all notifications');
+    const notifications = await Notification.find({ deleted: false })
+      .sort({ createdAt: -1 });
+    
+    console.log('Found notifications:', notifications);
+    res.json(notifications);
+  } catch (err) {
+    console.error('Error fetching notifications:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+export default router;

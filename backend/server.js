@@ -7,42 +7,46 @@ import dotenv from "dotenv";
 import parkingRoutes from "./routes/parkingRoutes.js";
 import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js"; // Add this import
 import Booking from "./models/Booking.js";
+import Notification from "./models/Notification.js"; // Add this import
+import userRoutes from "./routes/user.js";
 
 // Initialize App
-dotenv.config(); // Load .env variables
+dotenv.config();
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173', // Frontend URL
+  origin: 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 
-const server = http.createServer(app); // Create HTTP server
+const server = http.createServer(app);
 export const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173",
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   }
-}); // Enable WebSocket
+});
 
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/parking", parkingRoutes);
 app.use("/api/reports", reportRoutes);
-
-// Test Route to Check Server Status
+app.use("/api/notifications", notificationRoutes); // Add notification routes
+app.use("/api/users", userRoutes);
+// Test Route
 app.get("/", (req, res) => {
     res.send("API is running...");
 });
 
-// Test API endpoint for connection
+// Test API endpoint
 app.get("/api/test", (req, res) => {
     res.json({ 
         message: "Connection successful!", 
@@ -51,16 +55,16 @@ app.get("/api/test", (req, res) => {
 });
 
 // MongoDB Connection
-const mongoURI = process.env.MONGO_URI; // Use environment variable for connection string
+const mongoURI = process.env.MONGO_URI;
 
 mongoose.connect(mongoURI)
-    .then(() => {
+    .then(async () => {
         console.log('MongoDB Connected');
-        // Log the number of documents in the bookings collection
-        return Booking.countDocuments();
-    })
-    .then(count => {
-        console.log(`Number of bookings in database: ${count}`);
+        // Log the number of documents in collections
+        const bookingCount = await Booking.countDocuments();
+        const notificationCount = await Notification.countDocuments();
+        console.log(`Number of bookings in database: ${bookingCount}`);
+        console.log(`Number of notifications in database: ${notificationCount}`);
     })
     .catch(err => console.error('MongoDB connection error:', err));
 
@@ -98,8 +102,6 @@ app.get("/api/reports/analytics", async (req, res) => {
             { $sort: { "_id.date": 1 } }
         ]);
 
-        console.log('Daily trends:', dailyTrends);
-
         // Get monthly stats
         const monthlyStats = await Booking.aggregate([
             { $match: dateFilter },
@@ -119,8 +121,6 @@ app.get("/api/reports/analytics", async (req, res) => {
             { $sort: { "_id.month": 1 } }
         ]);
 
-        console.log('Monthly stats:', monthlyStats);
-
         // Get overall stats
         const overallStats = await Booking.aggregate([
             { $match: dateFilter },
@@ -137,8 +137,6 @@ app.get("/api/reports/analytics", async (req, res) => {
                 }
             }
         ]);
-
-        console.log('Overall stats:', overallStats);
 
         res.json({
             dailyTrends,
@@ -159,13 +157,9 @@ app.get("/api/reports/analytics", async (req, res) => {
 app.get('/api/reports/user-bookings/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        console.log('Fetching bookings for user:', userId);
-        
         const bookings = await Booking.find({ userId })
             .sort({ date: -1 })
             .limit(20);
-            
-        console.log('Found bookings:', bookings);
         res.json(bookings);
     } catch (error) {
         console.error('Error fetching user bookings:', error);
@@ -173,11 +167,26 @@ app.get('/api/reports/user-bookings/:userId', async (req, res) => {
     }
 });
 
-// Start Server
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-
 // Socket.io connection
 io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
+
+    // Add notification socket events
+    socket.on("newNotification", async (notification) => {
+        try {
+            const newNotification = new Notification(notification);
+            await newNotification.save();
+            io.emit("notificationReceived", newNotification);
+        } catch (error) {
+            console.error("Error creating notification:", error);
+        }
+    });
+
+    socket.on("disconnect", () => {
+        console.log("User disconnected:", socket.id);
+    });
 });
+
+// Start Server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

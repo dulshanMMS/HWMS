@@ -20,7 +20,7 @@ export const validatePassword = (password) => {
 };
 
 // Verify JWT Token
-const verifyToken = (req, res, next) => {
+export const verifyToken = (req, res, next) => {
     const token = req.headers.authorization?.split(" ")[1]; 
 
     if (!token) {
@@ -45,4 +45,5 @@ export const isAdmin = (req, res, next) => {
     }
 };
 
+// You can export verifyToken as default and also as a named export
 export default verifyToken;

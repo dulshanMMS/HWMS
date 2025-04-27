@@ -28,6 +28,11 @@ const bookingSchema = new mongoose.Schema({
         required: true,
         enum: ['SENG', 'BM', 'IT']
       },
+      floor: {
+        type: String,
+        required: true,
+        enum: ['1', '2', '3', '4'] // Restrict to valid floor numbers
+      },
     createdAt: {
         type: Date,
         default: Date.now
