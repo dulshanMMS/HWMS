@@ -2,7 +2,8 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
-import bookingRoutes from "./routes/seatBookings.js"; // Import booking routes
+import bookingRoutes from "./routes/seatBookings.js";  // Import booking routes
+import teamRoutes from "./routes/teamRoutes.js";  // Import team routes
 
 dotenv.config();  // Load environment variables
 
@@ -23,8 +24,9 @@ const connectDB = async () => {
 
 connectDB();  // Establish MongoDB connection
 
-// Use the booking routes for handling booking requests
+// Use the booking and team routes
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/teams", teamRoutes);  // Add this line to handle team-related requests
 
 // Start the server on the specified port
 const PORT = process.env.PORT || 5004; // Changed default to 5004 to match API calls
