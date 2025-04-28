@@ -89,18 +89,18 @@ router.post("/member/:userName/seat/:seatId", async (req, res) => {
 });
 
 // DELETE - Unbook a seat
-router.delete("/unbook/:seatId", async (req, res) => {
-  const { seatId } = req.params;
+router.delete("/unbook/:roomId/:seatId", async (req, res) => {
+  const { roomId, seatId } = req.params;
 
   try {
-    // Find the booking containing the seat
-    const booking = await Booking.findOne({ "chairs": { $exists: true, $ne: null } });
+    // Find the booking for the specific room (areaId)
+    const booking = await Booking.findOne({ areaId: roomId });
     if (booking && booking.chairs.has(seatId)) {
       booking.chairs.delete(seatId);
       await booking.save();
       res.json({ message: `Seat ${seatId} unbooked successfully!`, success: true });
     } else {
-      res.status(404).json({ error: "Seat not found" });
+      res.status(404).json({ error: "Seat not found in this room" });
     }
   } catch (err) {
     console.error("Error unbooking seat:", err);
