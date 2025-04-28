@@ -1,24 +1,33 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import bookingRoutes from "./routes/seatBookings.js"; // Import booking routes
+
+dotenv.config();  // Load environment variables
 
 const app = express();
+app.use(cors());  // Enable CORS to allow requests from different origins
+app.use(express.json());  // Parse incoming JSON requests
 
-// Import Routes
-const seatBookingRoutes = require('./routes/seatBookings');
+// MongoDB connection
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);  // Mongo URI stored in .env file
+    console.log("MongoDB connected");
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);  // Exit the application if connection fails
+  }
+};
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use('/api', seatBookingRoutes);
+connectDB();  // Establish MongoDB connection
 
-const PORT = 8000;
-const DB_URL = 'mongodb+srv://user01:Matamathakanaa1128@cluster001.yt3tg.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Cluster001';
+// Use the booking routes for handling booking requests
+app.use("/api/bookings", bookingRoutes);
 
-mongoose.connect(DB_URL)
-    .then(() => console.log('DB Connected'))
-    .catch((err) => console.log('DB connection error:', err));
-
+// Start the server on the specified port
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`App is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });

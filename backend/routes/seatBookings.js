@@ -1,135 +1,111 @@
-const express = require('express');
-const SeatBooking = require('../models/seatBooking');
+import express from "express";
+import Booking from "../models/seatBooking.js"; // Import the Booking model
 
 const router = express.Router();
 
-// Reserve Team Slots (Prevent Overlapping)
-router.post('/bookings/team/:teamId/area/:areaId', async (req, res) => {
-    try {
-        const { teamId, areaId } = req.params;
-        const { teamName, areaName, seats, startTime, endTime } = req.body;
-
-        const start = new Date(startTime);
-        const end = new Date(endTime);
-
-        // Check if any seats are already booked during this time slot
-        const conflictingBookings = await SeatBooking.find({
-            areaId,
-            seatNumber: { $in: seats },
-            $or: [
-                { "timeSlot.startTime": { $lt: end }, "timeSlot.endTime": { $gt: start } }
-            ]
-        });
-
-        if (conflictingBookings.length > 0) {
-            return res.status(400).json({
-                error: "Some seats are already booked within this time slot.",
-                conflictingSeats: conflictingBookings.map(seat => seat.seatNumber)
-            });
-        }
-
-        // If no conflicts, proceed with booking
-        const bookings = seats.map(seat => ({
-            teamId,
-            teamName,
-            areaId,
-            areaName,
-            seatNumber: seat,
-            isBooked: true,
-            timeSlot: { startTime: start, endTime: end }
-        }));
-
-        await SeatBooking.insertMany(bookings);
-        res.status(200).json({ success: "Team slots reserved successfully." });
-
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
+// GET - Fetch all bookings (seats)
+router.get("/", async (req, res) => {
+  try {
+    const bookings = await Booking.find();
+    const result = { chairs: {} };
+    bookings.forEach(b => {
+      const chairs = Object.fromEntries(b.chairs || []);
+      Object.entries(chairs).forEach(([chairId, userName]) => {
+        result.chairs[chairId] = userName;
+      });
+    });
+    res.json(result);  // Return { chairs: { "chairId": "userName" } }
+  } catch (err) {
+    console.error("Error fetching bookings:", err);
+    res.status(500).json({ error: "Failed to fetch bookings" });
+  }
 });
 
-// Book an Individual Seat (Prevent Overlapping)
-router.post('/bookings/member/:memberId/seat/:seatId', async (req, res) => {
-    try {
-        const { memberId, seatId } = req.params;
-        const { startTime, endTime } = req.body;
+// POST - Book a chair (team leader can book for any member)
+router.post("/leader/:userName/member/:teamMemberName/seat/:seatId", async (req, res) => {
+  const { userName, seatId, teamMemberName } = req.params;
+  const { roomId, teamName } = req.body; // Extract teamName from request body
 
-        const start = new Date(startTime);
-        const end = new Date(endTime);
+  console.log(`Team Leader ${userName} is booking seat ${seatId} for member ${teamMemberName} in room ${roomId} with team ${teamName}`);
 
-        // Check if the seat is already booked during this time slot
-        const existingBooking = await SeatBooking.findOne({
-            seatNumber: seatId,
-            $or: [
-                { "timeSlot.startTime": { $lt: end }, "timeSlot.endTime": { $gt: start } }
-            ]
-        });
+  try {
+    // Find the booking for the room (areaId)
+    let booking = await Booking.findOne({ areaId: roomId });
 
-        if (existingBooking) {
-            return res.status(400).json({
-                error: "Seat is already booked during this time slot."
-            });
-        }
-
-        // If seat is available, book it
-        const newBooking = new SeatBooking({
-            seatNumber: seatId,
-            isBooked: true,
-            bookedBy: memberId,
-            timeSlot: { startTime: start, endTime: end }
-        });
-
-        await newBooking.save();
-        res.status(200).json({ success: "Seat booked successfully." });
-
-    } catch (err) {
-        res.status(400).json({ error: err.message });
+    if (!booking) {
+      // If the room doesn't have a booking yet, create one
+      booking = new Booking({
+        areaId: roomId,
+        teamName: teamName || null,  // Save teamName
+        teamColor: null,
+        chairs: { [seatId]: teamMemberName },  // Assign seat to the team member
+      });
+      await booking.save();  // Save the booking
+    } else {
+      // If the room is already booked, assign the seat to the team member
+      booking.teamName = teamName || booking.teamName;  // Update teamName if provided
+      booking.chairs.set(seatId, teamMemberName);
+      await booking.save();  // Save the updated booking
     }
+
+    res.json({ message: `Seat ${seatId} booked for ${teamMemberName} successfully!`, success: true });
+  } catch (err) {
+    console.error("Error booking chair:", err);
+    res.status(500).json({ error: "Failed to book chair" });
+  }
 });
 
-// Get Available Team Slots (Check Time Slots)
-router.get('/bookings/team/:teamId/area/:areaId', async (req, res) => {
-    try {
-        const { teamId, areaId } = req.params;
-        const { startTime, endTime } = req.query;
+// POST - Book a seat for the user (team member can book their own seat)
+router.post("/member/:userName/seat/:seatId", async (req, res) => {
+  const { userName, seatId } = req.params;
+  const { roomId, teamName } = req.body; // Extract teamName from request body
 
-        const start = new Date(startTime);
-        const end = new Date(endTime);
+  console.log(`Booking seat ${seatId} in room ${roomId} for user ${userName} with team ${teamName}`);
 
-        // Find seats that are not booked in this time slot
-        const availableSeats = await SeatBooking.find({
-            areaId,
-            isBooked: false,
-            $or: [
-                { "timeSlot.startTime": { $gte: end } },
-                { "timeSlot.endTime": { $lte: start } }
-            ]
-        });
+  try {
+    let booking = await Booking.findOne({ areaId: roomId });
 
-        res.status(200).json(availableSeats);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!booking) {
+      // If no booking for the room, create a new one
+      booking = new Booking({
+        areaId: roomId,
+        teamName: teamName || null,  // Save teamName
+        teamColor: null,
+        chairs: { [seatId]: userName },
+      });
+      await booking.save();  // Save the new booking
+    } else {
+      // If the room exists, book the chair for the user
+      booking.teamName = teamName || booking.teamName;  // Update teamName if provided
+      booking.chairs.set(seatId, userName);
+      await booking.save();  // Save the updated booking
     }
+
+    res.json({ message: "Chair booked successfully!", success: true });
+  } catch (err) {
+    console.error("Error booking chair:", err);
+    res.status(500).json({ error: "Failed to book chair" });
+  }
 });
 
-// Cancel a Booking (Release Seat & Time Slot)
-router.delete('/bookings/:bookingId', async (req, res) => {
-    try {
-        const { bookingId } = req.params;
-        const seat = await SeatBooking.findById(bookingId);
+// DELETE - Unbook a seat
+router.delete("/unbook/:seatId", async (req, res) => {
+  const { seatId } = req.params;
 
-        if (!seat) {
-            return res.status(404).json({ error: "Booking not found" });
-        }
-
-        seat.isBooked = false;
-        seat.bookedBy = null;
-        seat.timeSlot = { startTime: null, endTime: null }; // Free the time slot
-        await seat.save();
-
-        res.status(200).json({ success: "Booking cancelled successfully, time slot released." });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+  try {
+    // Find the booking containing the seat
+    const booking = await Booking.findOne({ "chairs": { $exists: true, $ne: null } });
+    if (booking && booking.chairs.has(seatId)) {
+      booking.chairs.delete(seatId);
+      await booking.save();
+      res.json({ message: `Seat ${seatId} unbooked successfully!`, success: true });
+    } else {
+      res.status(404).json({ error: "Seat not found" });
     }
+  } catch (err) {
+    console.error("Error unbooking seat:", err);
+    res.status(500).json({ error: "Failed to unbook seat" });
+  }
 });
 
-module.exports = router;
+export default router;
