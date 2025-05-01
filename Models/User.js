@@ -7,7 +7,15 @@ const UserSchema = new Schema({
     username: String,
     email: String,
     password: String,
-    role: String
+    role: String,
+
+    nickname: { type: String, default: "" },
+    gender: { type: String, default: "" },
+    country: { type: String, default: "" },
+    timezone: { type: String, default: "" },
+    vehicleNo: { type: String, default: "" },
+
+    teamId: { type: String, default: "" } 
 });
 
 const db = mongoose.connection.useDb('test');
