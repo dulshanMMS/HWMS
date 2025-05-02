@@ -4,44 +4,52 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
+
+// Route Imports
 import parkingRoutes from "./routes/parkingRoutes.js";
 import authRoutes from "./routes/auth.js";
+import bookingRoutes from './routes/bookingRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import eventRoutes from './routes/events.js'; 
 
 // Initialize App
-dotenv.config(); // Load .env variables
-
+dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+export const io = new Server(server, {
+  cors: { origin: "*" }
+});
+
 // Middleware
 app.use(express.json());
-app.use(cors());     // Allow frontend to access API
+app.use(cors());
 
-const server = http.createServer(app); // Create HTTP server
-export const io = new Server(server, { cors: { origin: "*" } }); // Enable WebSocket
-
-// Routes
+// API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/parking", parkingRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/bookings/events', eventRoutes); // ✅ Mount the event routes here
 
-// Test Route to Check Server Status
+// Test Route
 app.get("/", (req, res) => {
-    res.send("API is running...");
+  res.send("API is running...");
+});
+
+// WebSocket connection
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
 });
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-}).then(() => console.log(" MongoDB Connected"))
-  .catch(err => console.log(" MongoDB Connection Error:", err));
-
-io.on("connection", (socket) => {
-    console.log(" User connected:", socket.id);
-});
-   
-app.use("/api/parking", parkingRoutes); // Use API routes
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log("MongoDB Connected"))
+  .catch(err => console.log("MongoDB Connection Error:", err));
 
 // Start Server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(` Server running on http://localhost:${PORT}`));
-
- 
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
