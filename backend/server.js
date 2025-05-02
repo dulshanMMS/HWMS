@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import Booking from "./models/Booking.js";
 import historyRoutes from "./routes/historyRoutes.js"; //history
+import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";   //parking_admin
 
 // Initialize App
 dotenv.config(); // Load .env variables
@@ -38,6 +39,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/parking", parkingRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/history", historyRoutes);  // history
+app.use("/api/admin/parking",parkingAdminRoutes);  // parking admin
 
 
 // Test Route to Check Server Status
