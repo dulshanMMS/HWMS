@@ -1,5 +1,6 @@
-const nodemailer = require('nodemailer');
-const Notification = require('../models/Notification');
+import nodemailer from 'nodemailer';
+import Notification from '../models/Notification.js';
+import User from '../models/User.js'; // Make sure to import User model
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
@@ -143,4 +144,4 @@ class NotificationService {
   }
 }
 
-module.exports = NotificationService; 
+export default NotificationService;

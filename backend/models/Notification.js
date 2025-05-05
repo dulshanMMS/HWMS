@@ -39,13 +39,11 @@ const notificationSchema = new mongoose.Schema({
   },
   title: {
     type: String,
-    required: true,
-    trim: true
+    required: true
   },
   message: {
     type: String,
-    required: true,
-    trim: true
+    required: true
   },
   type: {
     type: String,
