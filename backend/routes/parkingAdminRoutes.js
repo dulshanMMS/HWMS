@@ -102,6 +102,55 @@ router.post("/filter-by-user-and-date", async (req, res) => {
 });
 
 
+// Admin: Add a new slot to a floor
+router.post("/add-slot", async (req, res) => {
+    const { slotNumber, floor } = req.body;
+  
+    if (!slotNumber || !floor) {
+      return res.status(400).json({ message: "slotNumber and floor are required" });
+    }
+  
+    try {
+      const exists = await ParkingSlot.findOne({ slotNumber });
+      if (exists) {
+        return res.status(400).json({ message: "Slot already exists!" });
+      }
+  
+      const newSlot = new ParkingSlot({
+        slotNumber,
+        floor,
+        bookings: [] // No bookings yet
+      });
+  
+      await newSlot.save();
+      res.status(201).json({ message: "Slot added successfully", slot: newSlot });
+    } catch (error) {
+      console.error("Error adding slot:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
 
+  
+  // Admin: Delete a slot 
+router.post("/delete-slot", async (req, res) => {
+    const { slotNumber } = req.body;
+  
+    if (!slotNumber) {
+      return res.status(400).json({ message: "slotNumber is required" });
+    }
+  
+    try {
+      const deleted = await ParkingSlot.findOneAndDelete({ slotNumber });
+  
+      if (!deleted) {
+        return res.status(404).json({ message: "Slot not found" });
+      }
+  
+      res.json({ message: `Slot ${slotNumber} deleted successfully` });
+    } catch (error) {
+      console.error("Error deleting slot:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
   
 export default router;
