@@ -115,7 +115,7 @@ export const getTeamBookingsToday = async (req, res) => {
   }
 };
 
-// 4. FLOOR-WISE BOOKING COUNTS
+// 4. FLOOR-WISE BOOKING COUNTS FOR THE GRAPH
 export const getFloorBookingCount = async (req, res) => {
   try {
     const [parkingSlots, seatingSlots] = await Promise.all([

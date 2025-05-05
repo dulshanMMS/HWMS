@@ -30,7 +30,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/parking", parkingRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/bookings/events', eventRoutes); // ✅ Mount the event routes here
+app.use('/api/events', eventRoutes); 
 
 // Test Route
 app.get("/", (req, res) => {
