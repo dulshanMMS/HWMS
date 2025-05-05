@@ -21,7 +21,7 @@ router.post("/", async (req, res) => {
 });
 
 // Get all events
-router.get("/events", async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const events = await Event.find();
     res.json({ success: true, events });
@@ -32,7 +32,7 @@ router.get("/events", async (req, res) => {
 });
 
 // Get events by date
-router.get("/events/:date", async (req, res) => {
+router.get("/:date", async (req, res) => {
   try {
     const { date } = req.params;
     const events = await Event.find({ date });
@@ -40,6 +40,17 @@ router.get("/events/:date", async (req, res) => {
   } catch (err) {
     console.error("Error fetching events for date:", err);
     res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
+// DELETE /api/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const deleted = await Event.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, message: "Event not found" });
+    res.json({ success: true, message: "Event deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
