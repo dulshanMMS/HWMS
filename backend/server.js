@@ -9,8 +9,9 @@ import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js"; // Add this import
 import Booking from "./models/Booking.js";
-import Notification from "./models/Notification.js"; // Add this import
-import userRoutes from "./routes/user.js";
+import Notification from "./models/Notification.js"; // Add Notification model import
+import historyRoutes from "./routes/historyRoutes.js"; //history
+import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";   //parking_admin
 
 // Initialize App
 dotenv.config();
@@ -39,9 +40,11 @@ export const io = new Server(server, {
 app.use("/api/auth", authRoutes);
 app.use("/api/parking", parkingRoutes);
 app.use("/api/reports", reportRoutes);
-app.use("/api/notifications", notificationRoutes); // Add notification routes
-app.use("/api/users", userRoutes);
-// Test Route
+app.use("/api/history", historyRoutes);  // history
+app.use("/api/admin/parking",parkingAdminRoutes);  // parking admin
+
+
+// Test Route to Check Server Status
 app.get("/", (req, res) => {
     res.send("API is running...");
 });

@@ -1,42 +1,26 @@
 import mongoose from 'mongoose';
 
 const bookingSchema = new mongoose.Schema({
-    type: {
-        type: String,
-        required: true,
-        enum: ['seat', 'parking']
-    },
-    userId: {
-        type: String,
-        required: true
-    },
-    date: {
-        type: Date,
-        required: true
-    },
-    status: {
-        type: String,
-        required: true,
-        enum: ['confirmed', 'pending', 'cancelled']
-    },
-    details: {
-        type: String,
-        required: true
-    },
-    program: {
-        type: String,
-        required: true,
-        enum: ['SENG', 'BM', 'IT']
-      },
-      floor: {
-        type: String,
-        required: true,
-        enum: ['1', '2', '3', '4'] // Restrict to valid floor numbers
-      },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
+  user: String,
+  slot: String,
+  team: {             // Maleesha
+    type: String,
+    required: true 
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  // Maleesha
+  type: {
+    type: String,
+    enum: ['booking', 'event'],
+    default: 'booking',
+  },
+  floor: {
+    type: String,
+    required: true
+  }
 });
 
 const Booking = mongoose.model('Booking', bookingSchema);
