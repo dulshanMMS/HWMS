@@ -3,7 +3,7 @@ import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
 
-// 1. TOTAL TODAY BOOKINGS
+// 1. TOTAL TODAY BOOKINGS..................
 export const getTodayBookingCount = async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -29,7 +29,7 @@ export const getTodayBookingCount = async (req, res) => {
   }
 };
 
-// 2. EVENT LIST FOR A SPECIFIC DATE
+// 2. EVENT LIST FOR A SPECIFIC DATE............................
 export const getBookingsByDate = async (req, res) => {
   try {
     const { date } = req.params;
@@ -61,7 +61,7 @@ export const getBookingsByDate = async (req, res) => {
   }
 };
 
-// 3. TEAM-WISE TODAY BOOKING COUNTS
+// 3. TEAM-WISE TODAY BOOKING COUNTS...............................
 export const getTeamBookingsToday = async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -115,7 +115,8 @@ export const getTeamBookingsToday = async (req, res) => {
   }
 };
 
-// 4. FLOOR-WISE BOOKING COUNTS FOR THE GRAPH
+
+// 4. FLOOR-WISE BOOKING COUNTS....
 export const getFloorBookingCount = async (req, res) => {
   try {
     const [parkingSlots, seatingSlots] = await Promise.all([

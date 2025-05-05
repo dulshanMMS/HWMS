@@ -196,14 +196,14 @@ router.get('/analytics', async (req, res) => {
                 $project: {
                     _id: 0,
                     month: "$_id",
-                    SENG: {
+                    "Team A": {
                         $sum: {
                             $map: {
                                 input: {
                                     $filter: {
                                         input: "$programs",
                                         as: "prog",
-                                        cond: { $eq: ["$$prog.program", "SENG"] }
+                                        cond: { $eq: ["$$prog.program", "Team A"] }
                                     }
                                 },
                                 as: "filtered",
@@ -211,14 +211,14 @@ router.get('/analytics', async (req, res) => {
                             }
                         }
                     },
-                    BM: {
+                    "Team B": {
                         $sum: {
                             $map: {
                                 input: {
                                     $filter: {
                                         input: "$programs",
                                         as: "prog",
-                                        cond: { $eq: ["$$prog.program", "BM"] }
+                                        cond: { $eq: ["$$prog.program", "Team B"] }
                                     }
                                 },
                                 as: "filtered",
@@ -226,14 +226,14 @@ router.get('/analytics', async (req, res) => {
                             }
                         }
                     },
-                    IT: {
+                    "Team C": {
                         $sum: {
                             $map: {
                                 input: {
                                     $filter: {
                                         input: "$programs",
                                         as: "prog",
-                                        cond: { $eq: ["$$prog.program", "IT"] }
+                                        cond: { $eq: ["$$prog.program", "Team C"] }
                                     }
                                 },
                                 as: "filtered",
@@ -316,27 +316,29 @@ router.get('/floor-usage', async (req, res) => {
             }
         ]);
 
+        console.log('Raw floor bookings data:', floorBookings); // Debug log
+
         // Define total seats per floor
         const totalSeatsPerFloor = {
-            '1': 50,
-            '2': 50,
-            '3': 50,
-            '4': 50
+            'Floor 14': 50,
+            'Floor 30': 50,
+            'Floor 31': 50,
+            'Floor 32': 50
         };
 
         // Calculate usage percentages for all floors
-        const floorUsage = Object.entries(totalSeatsPerFloor).map(([floorNumber, totalSeats]) => {
-            const floorData = floorBookings.find(b => b._id === floorNumber) || { bookingCount: 0 };
+        const floorUsage = Object.entries(totalSeatsPerFloor).map(([floorName, totalSeats]) => {
+            const floorData = floorBookings.find(b => b._id === floorName) || { bookingCount: 0 };
             const usedPercentage = (floorData.bookingCount / totalSeats) * 100;
 
             return {
-                floor: `Floor ${floorNumber}`,
+                floor: floorName,
                 used: parseFloat(usedPercentage.toFixed(2)),
                 unused: parseFloat((100 - usedPercentage).toFixed(2))
             };
         });
 
-        console.log('Floor usage data:', floorUsage);
+        console.log('Floor usage data:', floorUsage); // Debug log
         res.json(floorUsage);
     } catch (error) {
         console.error('Error fetching floor usage:', error);
