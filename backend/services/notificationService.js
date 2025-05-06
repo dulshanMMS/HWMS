@@ -5,12 +5,9 @@ const nodemailer = require('nodemailer');
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
 
-//import nodemailer from 'nodemailer';
-//import Notification from '../models/Notification.js';
-//import User from '../models/User.js'; // Needed for get/update preferences
-import nodemailer from 'nodemailer';
-import Notification from '../models/Notification.js';
-import User from '../models/User.js'; // Make sure to import User model
+// import nodemailer from 'nodemailer';
+// import Notification from '../models/Notification.js';
+// import User from '../models/User.js'; // Make sure to import User model
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
@@ -140,4 +137,4 @@ export async function updateNotificationPreferences(userId, preferences) {
   }
 }
 
-export default NotificationService;
+//export default NotificationService;
