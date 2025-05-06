@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 const UserSchema = new Schema({
@@ -21,4 +21,4 @@ const UserSchema = new Schema({
 const db = mongoose.connection.useDb('test');
 const user = db.model('user', UserSchema,'users');
 
-module.exports = user;
+export default user;

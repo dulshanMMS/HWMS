@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 const ParkingSchema = new Schema({
@@ -10,4 +10,4 @@ const ParkingSchema = new Schema({
 const db = mongoose.connection.useDb('test');
 const parking = db.model('parkingslots', ParkingSchema);
 
-module.exports = parking;
+export default parking;

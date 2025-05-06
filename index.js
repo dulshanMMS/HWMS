@@ -1,10 +1,10 @@
-const express = require('express'); 
+import express from "express"; 
 const app = express();
 const PORT = 8000;
-const db = require('./Config/db');
+import db from "./Config/db.js";
 
-const router = require("./Routes/basicRouting");
-const userRouter = require("./Routes/userRoutes");
+import router from "./Routes/basicRouting.js";
+import userRouter from "./Routes/userRoutes.js";
 
 
 // const db = mongoose.connection.useDb('test');
