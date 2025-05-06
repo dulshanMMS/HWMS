@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const bookingSchema = new mongoose.Schema({
   user: String,
   slot: String,
-  team: {             // Maleesha
+  team: {             
     type: String,
     required: true 
   },
@@ -11,7 +11,6 @@ const bookingSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  // Maleesha
   type: {
     type: String,
     enum: ['booking', 'event'],
