@@ -1,16 +1,6 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-
-const nodemailer = require('nodemailer');
-import Notification from '../models/Notification.js';
-import User from '../models/User.js';
-
-//import nodemailer from 'nodemailer';
-//import Notification from '../models/Notification.js';
-//import User from '../models/User.js'; // Needed for get/update preferences
 import nodemailer from 'nodemailer';
 import Notification from '../models/Notification.js';
-import User from '../models/User.js'; // Make sure to import User model
+import User from '../models/User.js';
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
@@ -139,5 +129,3 @@ export async function updateNotificationPreferences(userId, preferences) {
     throw error;
   }
 }
-
-export default NotificationService;
