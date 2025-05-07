@@ -3,6 +3,12 @@ import User from "../models/User.js";
 import Booking from "../models/Booking.js"; // Assuming you have a Booking model
 import verifyToken, { isAdmin } from "../middleware/authMiddleware.js";
 
+//import profile controller functions DM
+import {
+    getUserProfile,
+    updateUserProfile,
+  } from "../controllers/userController.js";
+
 const router = express.Router();
 
 // Admin: Lookup user info and booking counts
@@ -37,5 +43,10 @@ router.get("/lookup", verifyToken, isAdmin, async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 });
+
+
+router.get("/profile", verifyToken, getUserProfile);
+router.put("/profile", verifyToken, updateUserProfile);
+
 
 export default router;

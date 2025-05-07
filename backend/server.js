@@ -15,6 +15,7 @@ import historyRoutes from "./routes/historyRoutes.js";
 import bookingRoutes from './routes/bookingRoutes.js';
 import eventRoutes from './routes/events.js';
 import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";
+import userRoutes from "./routes/user.js";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/admin/parking", parkingAdminRoutes);
+app.use("/api/user", userRoutes);
 
 // Test Routes
 app.get("/", (req, res) => {
