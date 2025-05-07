@@ -1,12 +1,14 @@
 import express from "express";
 import ParkingSlot from "../models/ParkingSlots.js";
-import { io } from "../parking.js"; // Import socket instance
+import { io } from "../server.js"; // Import socket instance
+import verifyToken from "../middleware/authMiddleware.js"; // Import the authentication middleware
 
 const router = express.Router();
 
-//  Get Available Slots Based on Date, Time, and Floor
-router.post("/available-slots", async (req, res) => {
-    const { date, entryTime, exitTime, floor } = req.body;
+// Add verifyToken middleware to protect these routes
+// Only authenticated users can check available slots
+router.post("/available-slots", verifyToken, async (req, res) => {
+    const {date, entryTime, exitTime, floor } = req.body;
 
     // Get all slots on the given floor
     const slots = await ParkingSlot.find({ floor });
@@ -15,17 +17,22 @@ router.post("/available-slots", async (req, res) => {
     const availableSlots = slots.filter(slot =>
         !slot.bookings.some(booking =>
             booking.date === date &&
-            ((entryTime < booking.exitTime && exitTime > booking.entryTime))
+            !(exitTime <= booking.entryTime || entryTime >= booking.exitTime)
         )
     );
 
     res.json({ availableSlots });
 });
 
-//  Book a Parking Slot
-router.post("/book-slot", async (req, res) => {
-    const { userId, slotNumber, date, entryTime, exitTime } = req.body;
+// Book a Parking Slot - now uses the username from the JWT token
+// User only needs to provide slotNumber, date, entryTime, exitTime (no floor)
+router.post("/book-slot", verifyToken, async (req, res) => {
+    // Get username from the token (middleware adds the user info to req.user)
+    const username = req.user.username;
+    
+    const { slotNumber, date, entryTime, exitTime } = req.body;
 
+    // Find the slot by slotNumber only, without requiring floor
     const slot = await ParkingSlot.findOne({ slotNumber });
 
     if (!slot) return res.status(404).json({ message: "Slot not found" });
@@ -33,13 +40,13 @@ router.post("/book-slot", async (req, res) => {
     // Check for overlapping bookings
     const overlapping = slot.bookings.some(booking =>
         booking.date === date &&
-        ((entryTime < booking.exitTime && exitTime > booking.entryTime))
+        !(exitTime <= booking.entryTime || entryTime >= booking.exitTime)
     );
 
     if (overlapping) return res.status(400).json({ message: "Slot already booked for this time" });
 
-    // Save booking
-    slot.bookings.push({ userId, date, entryTime, exitTime });
+    // Save booking with username instead of userId
+    slot.bookings.push({ userName:username, date, entryTime, exitTime });
     await slot.save();
 
     // Emit real-time update
@@ -49,4 +56,3 @@ router.post("/book-slot", async (req, res) => {
 });
 
 export default router;
-

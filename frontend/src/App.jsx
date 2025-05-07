@@ -1,15 +1,17 @@
-import React from 'react'
+import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Login from './components/Login'
-import AdminDashboard from './components/AdminDashboard'
+import TestConnection from './components/TestConnection';
 
 const App = () => {
   return (
-    <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-    </Routes>
-  )
+    <div className="App">
+      <h1>HWMS System</h1>
+      <TestConnection />
+      <Routes>
+        {/* Your existing routes */}
+      </Routes>
+    </div>
+  );
 }
 
-export default App
+export default App;
