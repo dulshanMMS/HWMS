@@ -1,7 +1,7 @@
 import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 
-// ✅ Fetch recent bookings for dashboard (seat + parking)
+// Fetch recent bookings for dashboard (seat + parking)
 export const getRecentUserBookings = async (req, res) => {
   try {
     const username = req.user.username;
@@ -45,7 +45,7 @@ export const getRecentUserBookings = async (req, res) => {
   }
 };
 
-// ✅ Fetch bookings for a specific date (calendar)
+// Fetch bookings for a specific date (calendar)
 export const getUserBookingsByDate = async (req, res) => {
   try {
     const { date } = req.params;
@@ -93,7 +93,7 @@ export const getUserBookingsByDate = async (req, res) => {
   }
 };
 
-// ✅ Unified: Fetch all bookings for calendar view (month-based, no per-date param)
+// Unified: Fetch all bookings for calendar view (month-based, no per-date param)
 export const getUserCalendarView = async (req, res) => {
   try {
     const username = req.user.username;
@@ -113,6 +113,9 @@ export const getUserCalendarView = async (req, res) => {
               date: b.date,
               details:
                 b.details || `${type === 'seat' ? "Seat" : "Parking"} ${slot.slotNumber || slot.name}`,
+              floor: slot.floor || null,
+              entryTime: b.entryTime,
+              exitTime: b.exitTime,
             });
           }
         });
@@ -129,39 +132,74 @@ export const getUserCalendarView = async (req, res) => {
   }
 };
 
-// ✅ Unified: Fetch all bookings for calendar view (month-based, no per-date param)
-export const getUserBookingsView = async (req, res) => {
-    try {
-      const username = req.user.username;
-      const matchedBookings = [];
-  
-      const [seating, parking] = await Promise.all([
-        SeatingSlot.find({}),
-        ParkingSlot.find({}),
-      ]);
-  
-      const collect = (slots, type) => {
-        slots.forEach((slot) => {
-          slot.bookings.forEach((b) => {
-            if (b.userName === username) {
-              matchedBookings.push({
-                type,
-                date: b.date,
-                details:
-                  b.details ||
-                  `${type === 'seat' ? "Seat" : "Parking"} ${slot.slotNumber || slot.name}`,
-              });
-            }
+//  Recent Parking Bookings Only
+export const getRecentParkingBookings = async (req, res) => {
+  try {
+    const username = req.user.username;
+    const matched = [];
+
+    const parkingSlots = await ParkingSlot.find({});
+
+    parkingSlots.forEach(slot => {
+      slot.bookings.forEach(b => {
+        if (b.userName === username) {
+          matched.push({
+            date: b.date,
+            floor: slot.floor,
+            entryTime: b.entryTime,
+            exitTime: b.exitTime,
+            slot: slot.slotNumber || "Unknown",
           });
+        }
+      });
+    });
+
+    const sorted = matched
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 3);
+
+    res.json(sorted);
+  } catch (err) {
+    console.error("Recent parking bookings error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const getUserBookingsView = async (req, res) => {
+  try {
+    const username = req.user.username;
+    const matchedBookings = [];
+
+    const [seating, parking] = await Promise.all([
+      SeatingSlot.find({}),
+      ParkingSlot.find({}),
+    ]);
+
+    const collect = (slots, type) => {
+      slots.forEach((slot) => {
+        slot.bookings.forEach((b) => {
+          if (b.userName === username) {
+            matchedBookings.push({
+              type,
+              date: b.date,
+              details:
+                b.details || `${type === 'seat' ? "Seat" : "Parking"} ${slot.slotNumber || slot.name}`,
+              floor: slot.floor || null,
+              entryTime: b.entryTime,
+              exitTime: b.exitTime,
+            });
+          }
         });
-      };
-  
-      collect(seating, 'seat');
-      collect(parking, 'parking');
-  
-      res.json(matchedBookings);
-    } catch (err) {
-      console.error("Failed to fetch user calendar view bookings:", err);
-      res.status(500).json({ error: "Server error while loading calendar view" });
-    }
-  };
+      });
+    };
+
+    collect(seating, 'seat');
+    collect(parking, 'parking');
+
+    res.json(matchedBookings);
+  } catch (err) {
+    console.error("Failed to fetch user calendar view bookings:", err);
+    res.status(500).json({ error: "Server error while loading calendar view" });
+  }
+};
+

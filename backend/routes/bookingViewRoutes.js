@@ -3,18 +3,24 @@ import verifyToken from "../middleware/authMiddleware.js";
 import {
   getRecentUserBookings,
   getUserBookingsByDate,
-  getUserBookingsView
+  getUserBookingsView,
+  getRecentParkingBookings, 
 } from "../controllers/bookingViewController.js";
 
 const router = express.Router();
 
-// ✅ Route for calendar view: fetch all bookings for visible month
+// Calendar view (all bookings for current user)
 router.get("/user-view", verifyToken, getUserBookingsView);
 
-// 🗓️ Route for calendar view: fetch bookings for a given date (optional usage)
+//Bookings for a specific date (optional, used by calendar)
 router.get("/calendar/:date", verifyToken, getUserBookingsByDate);
 
-// 📌 Route for dashboard cards: fetch recent bookings
+// Dashboard summary bookings
 router.get("/recent", verifyToken, getRecentUserBookings);
+
+// ast 3 parking bookings only
+router.get("/parking-recent", verifyToken, getRecentParkingBookings); // 
+
+router.get("/recent-parking", verifyToken, getRecentParkingBookings);
 
 export default router;
