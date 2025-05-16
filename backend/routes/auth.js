@@ -1,5 +1,6 @@
 import express from "express";
 import verifyToken, { isAdmin } from "../middleware/authMiddleware.js";
+import { forgotPassword, resetPassword } from "../controllers/authController.js";
 import {
   signup,
   signin,
@@ -15,5 +16,7 @@ router.post("/signin", signin);
 router.get("/protected", verifyToken, protectedRoute);
 router.get("/user", verifyToken, userDashboard);
 router.get("/admin", verifyToken, isAdmin, adminDashboard);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 export default router;
