@@ -47,8 +47,24 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['info', 'warning', 'success', 'seat_booking', 'parking_booking', 'important'],
+    enum: [
+      'info', 
+      'warning', 
+      'success', 
+      'seat_booking', 
+      'seat_cancellation',
+      'parking_booking', 
+      'parking_cancellation',
+      'team_booking',
+      'team_cancellation',
+      'important'
+    ],
     default: 'info'
+  },
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking',
+    required: false
   },
   read: {
     type: Boolean,
