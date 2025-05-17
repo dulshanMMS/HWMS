@@ -5,6 +5,160 @@
 // import Notification from '../models/Notification.js';
 // import User from '../models/User.js';
 
+// Send booking notification to user and admin
+export async function sendBookingNotification({ booking, user, type }) {
+  try {
+    const notifications = [];
+    
+    // Notification for the user who made the booking
+    const userNotification = new Notification({
+      recipient: user._id,
+      title: type === 'seat_booking' ? 'Seat Booking Confirmed' : 'Parking Booking Confirmed',
+      message: `Your ${type === 'seat_booking' ? 'seat' : 'parking'} booking has been confirmed.`,
+      type,
+      bookingId: booking._id
+    });
+    notifications.push(userNotification);
+
+    // Notification for all admins
+    const admins = await User.find({ role: 'admin' });
+    for (const admin of admins) {
+      const adminNotification = new Notification({
+        recipient: admin._id,
+        title: 'New Booking Created',
+        message: `${user.firstName} ${user.lastName} has made a ${type === 'seat_booking' ? 'seat' : 'parking'} booking.`,
+        type: 'important',
+        bookingId: booking._id
+      });
+      notifications.push(adminNotification);
+    }
+
+    await Notification.insertMany(notifications);
+
+    // Send emails
+    const emailPromises = notifications.map(notification => 
+      sendEmail({
+        to: notification.recipient.email,
+        subject: notification.title,
+        message: notification.message
+      })
+    );
+
+    await Promise.all(emailPromises);
+    return notifications;
+  } catch (error) {
+    console.error('Error sending booking notification:', error);
+    throw error;
+  }
+}
+
+// Send cancellation notification
+export async function sendCancellationNotification({ booking, user, type }) {
+  try {
+    const notifications = [];
+    
+    // Notification for the user who cancelled
+    const userNotification = new Notification({
+      recipient: user._id,
+      title: type === 'seat_cancellation' ? 'Seat Booking Cancelled' : 'Parking Booking Cancelled',
+      message: `Your ${type === 'seat_cancellation' ? 'seat' : 'parking'} booking has been cancelled.`,
+      type,
+      bookingId: booking._id
+    });
+    notifications.push(userNotification);
+
+    // Notification for all admins
+    const admins = await User.find({ role: 'admin' });
+    for (const admin of admins) {
+      const adminNotification = new Notification({
+        recipient: admin._id,
+        title: 'Booking Cancelled',
+        message: `${user.firstName} ${user.lastName} has cancelled their ${type === 'seat_cancellation' ? 'seat' : 'parking'} booking.`,
+        type: 'important',
+        bookingId: booking._id
+      });
+      notifications.push(adminNotification);
+    }
+
+    await Notification.insertMany(notifications);
+
+    // Send emails
+    const emailPromises = notifications.map(notification => 
+      sendEmail({
+        to: notification.recipient.email,
+        subject: notification.title,
+        message: notification.message
+      })
+    );
+
+    await Promise.all(emailPromises);
+    return notifications;
+  } catch (error) {
+    console.error('Error sending cancellation notification:', error);
+    throw error;
+  }
+}
+
+// Send team booking notification
+export async function sendTeamBookingNotification({ booking, user, teamMembers }) {
+  try {
+    const notifications = [];
+    
+    // Notification for team members
+    for (const member of teamMembers) {
+      const teamNotification = new Notification({
+        recipient: member._id,
+        title: 'Team Booking Created',
+        message: `${user.firstName} ${user.lastName} has made a booking for the team.`,
+        type: 'team_booking',
+        bookingId: booking._id
+      });
+      notifications.push(teamNotification);
+    }
+
+    // Notification for all admins
+    const admins = await User.find({ role: 'admin' });
+    for (const admin of admins) {
+      const adminNotification = new Notification({
+        recipient: admin._id,
+        title: 'New Team Booking',
+        message: `${user.firstName} ${user.lastName} has made a booking for team ${user.team}.`,
+        type: 'important',
+        bookingId: booking._id
+      });
+      notifications.push(adminNotification);
+    }
+
+    await Notification.insertMany(notifications);
+
+    // Send emails
+    const emailPromises = notifications.map(notification => 
+      sendEmail({
+        to: notification.recipient.email,
+        subject: notification.title,
+        message: notification.message
+      })
+    );
+
+    await Promise.all(emailPromises);
+    return notifications;
+  } catch (error) {
+    console.error('Error sending team booking notification:', error);
+    throw error;
+  }
+}
+
+export async function sendNotification({ recipient, title, message, type, emailSubject }) {
+  try {
+    const notification = new Notification({
+      recipient,
+      title,
+      message,
+      type,
+      read: false,
+      deleted: false
+    });
+    await notification.save();
 // //import nodemailer from 'nodemailer';
 // //import Notification from '../models/Notification.js';
 // //import User from '../models/User.js'; // Needed for get/update preferences

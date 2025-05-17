@@ -346,4 +346,70 @@ router.get('/floor-usage', async (req, res) => {
     }
 });
 
+// Get all bookings (admin only)
+router.get('/all-bookings', async (req, res) => {
+    try {
+        console.log('Fetching all bookings...');
+        
+        // First, get the bookings without population to check if we can fetch them
+        const rawBookings = await Booking.find().sort({ date: -1 });
+        console.log(`Found ${rawBookings.length} bookings`);
+
+        // Now try to populate the references
+        const bookings = await Booking.find()
+            .sort({ date: -1 })
+            .populate({
+                path: 'userId',
+                select: 'firstName lastName email team',
+                model: 'User'
+            })
+            .populate({
+                path: 'slotId',
+                select: 'slotNumber floor',
+                model: 'SeatingSlots'
+            });
+
+        console.log('Successfully populated bookings');
+
+        // Format the response with null checks
+        const formattedBookings = bookings.map(booking => {
+            // Safely access user properties with optional chaining
+            const user = booking.userId ? {
+                id: booking.userId._id,
+                name: `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim(),
+                email: booking.userId.email || '',
+                team: booking.userId.team || ''
+            } : null;
+
+            // Safely access slot properties
+            const slot = booking.slotId ? {
+                slotNumber: booking.slotId.slotNumber,
+                floor: booking.slotId.floor
+            } : null;
+
+            return {
+                id: booking._id,
+                user,
+                slot,
+                type: booking.type || '',
+                date: booking.date,
+                details: booking.details || '',
+                status: booking.status || 'active',
+                team: booking.team || '',
+                createdAt: booking.createdAt
+            };
+        });
+
+        console.log('Successfully formatted bookings');
+        res.json(formattedBookings);
+    } catch (error) {
+        console.error('Detailed error in all-bookings endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch bookings',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
 export default router;

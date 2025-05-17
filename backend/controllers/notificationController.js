@@ -8,11 +8,34 @@ export const getAllNotifications = async (req, res) => {
     const notifications = await Notification.find({
       recipient: req.user.id,
       deleted: false,
-    }).sort({ createdAt: -1 });
+    })
+    .sort({ createdAt: -1 })
+    .populate('bookingId', 'type details date');
 
     res.json(notifications);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching notifications', error: error.message });
+  }
+};
+
+// Get admin notifications (all notifications)
+export const getAdminNotifications = async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const notifications = await Notification.find({
+      type: 'important',
+      deleted: false,
+    })
+    .sort({ createdAt: -1 })
+    .populate('recipient', 'firstName lastName email')
+    .populate('bookingId', 'type details date');
+
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching admin notifications', error: error.message });
   }
 };
 
@@ -28,6 +51,25 @@ export const getUnreadNotificationCount = async (req, res) => {
     res.json({ count });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching unread count', error: error.message });
+  }
+};
+
+// Get admin unread notifications count
+export const getAdminUnreadCount = async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const count = await Notification.countDocuments({
+      type: 'important',
+      read: false,
+      deleted: false,
+    });
+
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching admin unread count', error: error.message });
   }
 };
 
