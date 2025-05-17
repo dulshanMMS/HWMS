@@ -15,6 +15,9 @@ import historyRoutes from "./routes/historyRoutes.js";
 import bookingRoutes from './routes/bookingRoutes.js';
 import eventRoutes from './routes/events.js';
 import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";
+import userRoutes from "./routes/user.js";
+import calendarRoutes from "./routes/calendarRoutes.js";
+import bookingViewRoutes from './routes/bookingViewRoutes.js';
 
 dotenv.config();
 
@@ -46,6 +49,9 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/admin/parking", parkingAdminRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/calendar", calendarRoutes);
+app.use('/api/calendar', bookingViewRoutes);
 
 // Test Routes
 app.get("/", (req, res) => {

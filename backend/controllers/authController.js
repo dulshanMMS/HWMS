@@ -6,6 +6,7 @@ import {
   validateUsername,
   validatePassword,
 } from "../middleware/authMiddleware.js";
+import nodemailer from "nodemailer";
 
 // User Signup
 export const signup = async (req, res) => {
@@ -105,4 +106,85 @@ export const userDashboard = (req, res) => {
 
 export const adminDashboard = (req, res) => {
   res.json({ message: "Welcome to the Admin Dashboard", user: req.user });
+};
+
+
+// Forgot Password Controller
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found with this email" });
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "15m" });
+
+    const resetLink = `http://localhost:5173/reset-password/${token}`;
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER, // Gmail or other email
+        pass: process.env.EMAIL_PASS, // App password
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Password Reset Link",
+      html: `
+        <h3>Password Reset Request</h3>
+        <p>Hello ${user.username},</p>
+        <p>Click the link below to reset your password (valid for 15 minutes):</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>If you didn’t request this, ignore this email.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "Reset link sent to your email!" });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ error: "Server error sending reset link" });
+  }
+};
+
+//Reset Password
+export const resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: "Token and new password are required" });
+  }
+
+  try {
+    // Verify the reset token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Validate new password 
+    if (!validatePassword(newPassword)) {
+      return res.status(400).json({
+        error: "Password must contain at least one uppercase letter and one special character.",
+      });
+    }
+
+    // Hash and update the password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ message: "Password has been reset successfully" });
+  } catch (err) {
+    console.error("Reset password error:", err.message);
+    res.status(400).json({ error: "Invalid or expired token" });
+  }
 };
