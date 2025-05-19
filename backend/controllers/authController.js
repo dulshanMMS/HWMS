@@ -62,15 +62,15 @@ export const signup = async (req, res) => {
 
 // User Login
 export const signin = async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, password } = req.body;
 
-  if (!username || !email || !password) {
+  if (!username || !password) {        //!email ||
     return res.status(400).json({ error: "All fields are required" });
   }
 
   try {
     const user = await User.findOne({ username });
-    if (!user || user.email !== email) {
+    if (!user) {           //(!user || user.email !== email)
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
