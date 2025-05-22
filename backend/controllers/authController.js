@@ -96,6 +96,7 @@ export const signin = async (req, res) => {
   }
 };
 
+//once the token is verified
 export const protectedRoute = (req, res) => {
   res.status(200).json({ message: "This is a protected route!", user: req.user });
 };
@@ -111,19 +112,19 @@ export const adminDashboard = (req, res) => {
 
 // Forgot Password Controller
 export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
+  const { email } = req.body;                    // pulls the email sent by frontend body
 
   if (!email) return res.status(400).json({ error: "Email is required" });
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email });                                              //checks if the user exists with that email
     if (!user) return res.status(404).json({ error: "User not found with this email" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "15m" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "15m" });     //create a token for user._id
 
     const resetLink = `http://localhost:5173/reset-password/${token}`;
 
-    const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({               //uses nodemailer to sent email
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER, // Gmail or other email

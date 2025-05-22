@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.post("/signup", signup);
 router.post("/signin", signin);
-router.get("/protected", verifyToken, protectedRoute);
+router.get("/protected", verifyToken, protectedRoute);  //verifyToken middleware verifies the JWT token sent by the client
 router.get("/user", verifyToken, userDashboard);
 router.get("/admin", verifyToken, isAdmin, adminDashboard);
 router.post("/forgot-password", forgotPassword);
