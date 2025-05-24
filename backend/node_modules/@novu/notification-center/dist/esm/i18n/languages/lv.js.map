@@ -1,0 +1,1 @@
+{"version":3,"file":"lv.js","sourceRoot":"","sources":["../../../../src/i18n/languages/lv.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,YAAY;QAC3B,aAAa,EAAE,0BAA0B;QACzC,SAAS,EAAE,YAAY;QACvB,QAAQ,EAAE,aAAa;QACvB,iBAAiB,EAAE,oCAAoC;KACxD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

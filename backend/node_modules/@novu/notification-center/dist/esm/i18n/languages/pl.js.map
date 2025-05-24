@@ -1,0 +1,1 @@
+{"version":3,"file":"pl.js","sourceRoot":"","sources":["../../../../src/i18n/languages/pl.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,aAAa;QAC5B,aAAa,EAAE,mCAAmC;QAClD,SAAS,EAAE,iBAAiB;QAC5B,QAAQ,EAAE,YAAY;QACtB,iBAAiB,EAAE,4CAA4C;KAChE;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

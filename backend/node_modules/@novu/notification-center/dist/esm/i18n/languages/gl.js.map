@@ -1,0 +1,1 @@
+{"version":3,"file":"gl.js","sourceRoot":"","sources":["../../../../src/i18n/languages/gl.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,eAAe;QAC9B,aAAa,EAAE,uBAAuB;QACtC,SAAS,EAAE,mBAAmB;QAC9B,QAAQ,EAAE,SAAS;QACnB,iBAAiB,EAAE,sCAAsC;KAC1D;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

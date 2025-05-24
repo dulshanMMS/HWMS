@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SA = void 0;
+exports.SA = {
+    translations: {
+        notifications: 'अधिसूचनाः',
+        markAllAsRead: 'सर्वं पठितम् इति सूचनीयम्',
+        poweredBy: 'द्वारा संचालितः',
+        settings: 'संस्थापनम्',
+        noNewNotification: 'अत्र अद्यापि किमपि नूतनं द्रष्टुं न शक्यते',
+    },
+    lang: 'sa',
+};
+//# sourceMappingURL=sa.js.map

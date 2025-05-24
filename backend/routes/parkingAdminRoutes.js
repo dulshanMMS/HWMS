@@ -1,6 +1,8 @@
 // routes/ParkingAdminRoutes.js
 import express from "express";
 import ParkingSlot from "../models/ParkingSlots.js";
+import User from '../models/User.js';
+import * as NotificationService from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -119,10 +121,22 @@ router.post("/add-slot", async (req, res) => {
       const newSlot = new ParkingSlot({
         slotNumber,
         floor,
-        bookings: [] // No bookings yet
+        bookings: []
       });
   
       await newSlot.save();
+
+      // Send notifications to admins
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await NotificationService.sendNotification({
+          recipient: admin._id,
+          title: 'New Parking Slot Added',
+          message: `A new parking slot (Number: ${slotNumber}, Floor: ${floor}) has been added.`,
+          type: 'important'
+        });
+      }
+
       res.status(201).json({ message: "Slot added successfully", slot: newSlot });
     } catch (error) {
       console.error("Error adding slot:", error);

@@ -1,0 +1,1 @@
+{"version":3,"file":"bg.js","sourceRoot":"","sources":["../../../../src/i18n/languages/bg.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,UAAU;QACzB,aAAa,EAAE,gCAAgC;QAC/C,SAAS,EAAE,eAAe;QAC1B,QAAQ,EAAE,WAAW;QACrB,iBAAiB,EAAE,uCAAuC;KAC3D;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

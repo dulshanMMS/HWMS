@@ -5,9 +5,9 @@ import User from '../models/User.js';
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: 'Gmail',
   auth: {
-    user: process.env.EMAIL_USER,
+    user: process.env.EMAIL_USERNAME,
     pass: process.env.EMAIL_PASSWORD
   }
 });
@@ -155,37 +155,36 @@ export async function sendTeamBookingNotification({ booking, user, teamMembers }
   }
 }
 
-export async function sendNotification({ recipient, title, message, type, emailSubject }) {
-  try {
-    const notification = new Notification({
-      recipient,
-      title,
-      message,
-      type,
-      read: false,
-      deleted: false
-    });
+export const sendNotification = async ({ recipient, title, message, type, emailSubject }) => {
+  // Find the user by ID and ensure they have the "user" role
+  const user = await User.findById(recipient);
+  
+  if (user?.role === 'user') {
+    // Create and save the notification
+    const notification = new Notification({ recipient, title, message, type });
     await notification.save();
 
-    if (['seat_booking', 'parking_booking', 'important'].includes(type)) {
-      await sendEmail({
-        to: recipient.email,
+    // Send email if the user has an email address
+    if (user.email) {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USERNAME,
+        to: user.email,
         subject: emailSubject || title,
-        message
+        text: message,
       });
     }
 
     return notification;
-  } catch (error) {
-    console.error('Error sending notification:', error);
-    throw error;
+  } else {
+    console.error('Notification not sent: User is not a regular user or does not exist.');
+    return null;
   }
-}
+};
 
 export async function sendEmail({ to, subject, message }) {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_USERNAME,
       to,
       subject,
       html: `

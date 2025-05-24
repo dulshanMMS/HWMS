@@ -1,0 +1,1 @@
+{"version":3,"file":"he.js","sourceRoot":"","sources":["../../../../src/i18n/languages/he.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,QAAQ;QACvB,aAAa,EAAE,eAAe;QAC9B,SAAS,EAAE,aAAa;QACxB,QAAQ,EAAE,QAAQ;QAClB,iBAAiB,EAAE,iCAAiC;KACrD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

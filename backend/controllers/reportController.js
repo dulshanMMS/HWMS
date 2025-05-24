@@ -1,5 +1,6 @@
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 
 const getDeskUsageStats = async (startDate, endDate) => {
@@ -25,10 +26,10 @@ const getDeskUsageStats = async (startDate, endDate) => {
   
       // Define total desks per floor (you should adjust these numbers according to your actual floor capacity)
       const totalDesksPerFloor = {
-        1: 100, // Example: Floor 1 has 100 desks
-        2: 100,
-        3: 100,
-        4: 100
+        1: 64, 
+        2: 64,
+        3: 64,
+        4: 64
       };
   
       // Calculate usage percentages
@@ -60,7 +61,7 @@ export const teamLookup = async (req, res) => {
         const users = await User.find({ team }).select("username firstName lastName team _id");
         if (!users.length) return res.status(404).json({ error: "No users found for this team" });
 
-        const results = await Promise.all(users.map(async (user) => {
+        const results = await Promise.all(users.map(async (user) => { //parallelize DB queries for each user
             const bookings = await Booking.find({ userId: user._id });
             const parkingCount = bookings.filter(b => b.type === "parking").length;
             const seatCount = bookings.filter(b => b.type === "seat").length;
@@ -90,15 +91,19 @@ export const teamLookup = async (req, res) => {
 // Function to handle user lookup
 export const userLookup = async (req, res) => {
     try {
-        const { userId, username } = req.query;
-        if (!userId && !username) {
-            return res.status(400).json({ error: "userId or username required" });
+        const { username } = req.query;
+
+        // Validate input
+        if (!username) {
+            return res.status(400).json({ error: 'username required' });
         }
 
-        const user = await User.findOne(
-            userId ? { _id: userId } : { username }
-        ).select("username firstName lastName team");
-        if (!user) return res.status(404).json({ error: "User not found" });
+        // Perform a case-insensitive search
+        const user = await User.findOne({ username: new RegExp(`^${username}$`, 'i') });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
         const bookings = await Booking.find({ userId: user._id });
         const parkingCount = bookings.filter(b => b.type === "parking").length;
@@ -114,8 +119,9 @@ export const userLookup = async (req, res) => {
             parkingCount,
             seatCount,
         });
-    } catch (err) {
-        res.status(500).json({ error: "Server error" });
+    } catch (error) {
+        console.error('Error in user lookup:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 };
 
@@ -350,10 +356,10 @@ export const floorUsage = async (req, res) => {
         ]);
 
         const totalSeatsPerFloor = {
-            'Floor 14': 50,
-            'Floor 30': 50,
-            'Floor 31': 50,
-            'Floor 32': 50
+            'Floor 14': 64,
+            'Floor 30': 64,
+            'Floor 31': 64,
+            'Floor 32': 64
         };
 
         const floorUsage = Object.entries(totalSeatsPerFloor).map(([floorName, totalSeats]) => {
@@ -426,5 +432,43 @@ export const allBookings = async (req, res) => {
             details: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
+    }
+};
+
+// Function to handle parking stream
+export const handleParkingStream = async (req, res) => {
+    try {
+        const parkingStream = await Booking.watch();
+
+        parkingStream.on('change', async (change) => {
+            console.log('Change detected:', change); // Log all changes
+            if (change.operationType === 'insert') {
+                const { userName, slotNumber, floor, date, entryTime, exitTime } = change.fullDocument;
+                
+                // Find the user by username to get the user ID
+                const user = await User.findOne({ username: userName });
+                if (!user) {
+                    console.error(`User not found for username: ${userName}. Skipping notification creation.`);
+                    return; // Skip this booking if user not found
+                }
+
+                // Create a notification for the new booking
+                const message = `${userName} has booked Parking Slot ${slotNumber} on Floor ${floor} from ${entryTime} to ${exitTime} on ${date}`;
+                const notification = new Notification({
+                    title: 'New Parking Booking',
+                    message,
+                    type: 'parking_booking',
+                    recipient: user._id, // Set the recipient to the user's ID
+                });
+
+                await notification.save();
+                console.log('Notification saved:', message);
+            }
+        });
+
+        res.status(200).json({ message: 'Parking stream monitoring started' });
+    } catch (error) {
+        console.error('Error setting up parking stream:', error);
+        res.status(500).json({ error: 'Failed to set up parking stream' });
     }
 };

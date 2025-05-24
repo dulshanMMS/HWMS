@@ -1,0 +1,1 @@
+{"version":3,"file":"sv.js","sourceRoot":"","sources":["../../../../src/i18n/languages/sv.ts"],"names":[],"mappings":";;;AAEa,QAAA,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,aAAa;QAC5B,aAAa,EAAE,wBAAwB;QACvC,SAAS,EAAE,UAAU;QACrB,QAAQ,EAAE,eAAe;QACzB,aAAa,EAAE,oBAAoB;QACnC,UAAU,EAAE,kBAAkB;QAC9B,YAAY,EAAE,mBAAmB;QACjC,iBAAiB,EAAE,4BAA4B;KAChD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

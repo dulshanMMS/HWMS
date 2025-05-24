@@ -1,0 +1,1 @@
+{"version":3,"file":"useFeedUnseenCount.d.ts","sourceRoot":"","sources":["../../../src/hooks/useFeedUnseenCount.ts"],"names":[],"mappings":"AAAA,OAAO,EAAY,eAAe,EAAE,MAAM,uBAAuB,CAAC;AAClE,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,cAAc,CAAC;AAGhD,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,sBAAsB,CAAC;AAGvD,eAAO,MAAM,kBAAkB;YACR,WAAW;aACvB,gBAAgB,UAAU,EAAE,KAAK,EAAE,UAAU,CAAC,sEAWxD,CAAC"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"useNovuTheme.d.ts","sourceRoot":"","sources":["../../../src/hooks/useNovuTheme.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,WAAW,EAAE,YAAY,EAAE,MAAM,UAAU,CAAC;AACrD,OAAO,EAAE,UAAU,EAAgB,MAAM,6BAA6B,CAAC;AAEvE,wBAAgB,YAAY,IAAI;IAC9B,KAAK,EAAE,UAAU,CAAC;IAClB,MAAM,EAAE,YAAY,CAAC;IACrB,WAAW,EAAE,WAAW,CAAC;CAC1B,CAQA"}

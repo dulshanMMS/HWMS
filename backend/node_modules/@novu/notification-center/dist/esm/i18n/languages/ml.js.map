@@ -1,0 +1,1 @@
+{"version":3,"file":"ml.js","sourceRoot":"","sources":["../../../../src/i18n/languages/ml.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,aAAa;QAC5B,aAAa,EAAE,qCAAqC;QACpD,SAAS,EAAE,YAAY;QACvB,QAAQ,EAAE,cAAc;QACxB,iBAAiB,EAAE,wCAAwC;KAC5D;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

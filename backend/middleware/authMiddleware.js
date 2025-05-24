@@ -44,5 +44,17 @@ export const isAdmin = (req, res, next) => {
     }
 };
 
+// Middleware to check authentication
+const authenticate = (req, res, next) => {
+  const token = req.headers['authorization'];
+  if (!token) {
+    return res.status(401).json({ message: 'Please log in to view notifications' });
+  }
+
+  // Verify token logic here
+  // If valid, call next()
+  // If invalid, return res.status(401).json({ message: 'Invalid token' });
+};
+
 // You can export verifyToken as default and also as a named export
 export default verifyToken;

@@ -1,0 +1,1 @@
+{"version":3,"file":"vi.js","sourceRoot":"","sources":["../../../../src/i18n/languages/vi.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,WAAW;QAC1B,aAAa,EAAE,4BAA4B;QAC3C,SAAS,EAAE,mBAAmB;QAC9B,QAAQ,EAAE,SAAS;QACnB,iBAAiB,EAAE,6BAA6B;KACjD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}
