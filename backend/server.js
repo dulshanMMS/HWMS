@@ -32,12 +32,11 @@ export const io = new Server(server, {
 });
 
 // Middleware
-app.use(cors({
+const corsOptions = {
   origin: 'http://localhost:5173',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
@@ -72,67 +71,6 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
     console.log(`Bookings: ${bookingCount}, Notifications: ${notificationCount}`);
   })
   .catch(err => console.error('MongoDB connection error:', err));
-
-// Analytics Route
-app.get("/api/reports/analytics", async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    const dateFilter = {};
-
-    if (startDate && endDate) {
-      dateFilter.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }
-
-    const dailyTrends = await Booking.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: { date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } } },
-          seatsCount: { $sum: { $cond: [{ $eq: ["$type", "seat"] }, 1, 0] } },
-          parkingCount: { $sum: { $cond: [{ $eq: ["$type", "parking"] }, 1, 0] } }
-        }
-      },
-      { $sort: { "_id.date": 1 } }
-    ]);
-
-    const monthlyStats = await Booking.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: { month: { $dateToString: { format: "%Y-%m", date: "$date" } } },
-          seatsCount: { $sum: { $cond: [{ $eq: ["$type", "seat"] }, 1, 0] } },
-          parkingCount: { $sum: { $cond: [{ $eq: ["$type", "parking"] }, 1, 0] } }
-        }
-      },
-      { $sort: { "_id.month": 1 } }
-    ]);
-
-    const overallStats = await Booking.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: null,
-          totalBookings: { $sum: 1 },
-          totalSeats: { $sum: { $cond: [{ $eq: ["$type", "seat"] }, 1, 0] } },
-          totalParking: { $sum: { $cond: [{ $eq: ["$type", "parking"] }, 1, 0] } }
-        }
-      }
-    ]);
-
-    res.json({
-      dailyTrends,
-      monthlyStats,
-      overallStats: overallStats[0] || { totalBookings: 0, totalSeats: 0, totalParking: 0 }
-    });
-
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics data' });
-  }
-});
 
 // User bookings route
 app.get('/api/reports/user-bookings/:userId', async (req, res) => {

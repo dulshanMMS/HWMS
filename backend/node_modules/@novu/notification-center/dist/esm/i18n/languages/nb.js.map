@@ -1,0 +1,1 @@
+{"version":3,"file":"nb.js","sourceRoot":"","sources":["../../../../src/i18n/languages/nb.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,SAAS;QACxB,aAAa,EAAE,sBAAsB;QACrC,SAAS,EAAE,WAAW;QACtB,QAAQ,EAAE,eAAe;QACzB,aAAa,EAAE,eAAe;QAC9B,UAAU,EAAE,eAAe;QAC3B,YAAY,EAAE,gBAAgB;QAC9B,iBAAiB,EAAE,6BAA6B;KACjD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

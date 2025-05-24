@@ -1,0 +1,1 @@
+{"version":3,"file":"useNovuContext.js","sourceRoot":"","sources":["../../../src/hooks/useNovuContext.ts"],"names":[],"mappings":";;;AAAA,iCAAmC;AACnC,0EAA6D;AAC7D,yDAAsD;AAGtD;;;GAGG;AACH,SAAgB,cAAc;IAC5B,MAAM,WAAW,GAAG,IAAA,kBAAU,EAAuB,mCAAW,CAAC,CAAC;IAClE,MAAM,OAAO,GAAG,IAAA,mCAAgB,EAAuB,WAAW,CAAC,CAAC;IAEpE,OAAO,OAAO,CAAC;AACjB,CAAC;AALD,wCAKC"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"ka.js","sourceRoot":"","sources":["../../../../src/i18n/languages/ka.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,eAAe;QAC9B,aAAa,EAAE,gCAAgC;QAC/C,SAAS,EAAE,aAAa;QACxB,QAAQ,EAAE,aAAa;QACvB,aAAa,EAAE,oBAAoB;QACnC,UAAU,EAAE,qBAAqB;QACjC,YAAY,EAAE,sBAAsB;QACpC,iBAAiB,EAAE,gCAAgC;KACpD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

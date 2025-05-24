@@ -2,6 +2,8 @@ import express from "express";
 import ParkingSlot from "../models/ParkingSlots.js";
 import { io } from "../server.js"; // Import socket instance
 import verifyToken from "../middleware/authMiddleware.js"; // Import the authentication middleware
+import * as NotificationService from '../services/notificationService.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -51,6 +53,25 @@ router.post("/book-slot", verifyToken, async (req, res) => {
 
     // Emit real-time update
     io.emit("updateParkingSlots", { message: "Slot booked", slot });
+
+    // Send notifications
+    const user = await User.findOne({ username });
+    const admins = await User.find({ role: 'admin' });
+
+    await NotificationService.sendBookingNotification({
+      booking: { _id: slot._id, type: 'parking_booking' },
+      user,
+      type: 'parking_booking'
+    });
+
+    for (const admin of admins) {
+      await NotificationService.sendNotification({
+        recipient: admin._id,
+        title: 'New Parking Booking',
+        message: `${username} has booked a parking slot.`,
+        type: 'important'
+      });
+    }
 
     res.json({ message: "Booking successful", slot });
 });

@@ -1,0 +1,1 @@
+{"version":3,"file":"useFetchUserPreferences.d.ts","sourceRoot":"","sources":["../../../src/hooks/useFetchUserPreferences.ts"],"names":[],"mappings":"AAAA,OAAO,EAAY,eAAe,EAAE,MAAM,uBAAuB,CAAC;AAClE,OAAO,KAAK,EAAE,uBAAuB,EAAE,MAAM,cAAc,CAAC;AAK5D,eAAO,MAAM,uBAAuB,aACzB,gBAAgB,uBAAuB,EAAE,EAAE,KAAK,EAAE,uBAAuB,EAAE,CAAC,qFAetF,CAAC"}

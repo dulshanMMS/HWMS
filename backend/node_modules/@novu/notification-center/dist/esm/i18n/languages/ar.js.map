@@ -1,0 +1,1 @@
+{"version":3,"file":"ar.js","sourceRoot":"","sources":["../../../../src/i18n/languages/ar.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,SAAS;QACxB,aAAa,EAAE,sBAAsB;QACrC,SAAS,EAAE,aAAa;QACxB,QAAQ,EAAE,WAAW;QACrB,iBAAiB,EAAE,oCAAoC;KACxD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}
