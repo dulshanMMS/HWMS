@@ -18,6 +18,7 @@ const BookingSchema = new mongoose.Schema({
 }, { timestamps: true }); // Optionally add timestamps for BookingSchema
 
 // Create a model for the schema
-const Booking = mongoose.model("Booking", BookingSchema);
+const Booking = mongoose.model("seatingSlots", BookingSchema);
+
 
 export default Booking;

@@ -185,19 +185,22 @@ router.delete("/unbook/:roomId/:seatId/:floor/:date", async (req, res) => {
   try {
     console.log("Unbooking seat request params:", { roomId, seatId, floor, date });
 
-    // Normalize date to midnight
+    // Normalize date using UTC midnight to avoid timezone issues
     const bookingDate = new Date(date);
-    bookingDate.setHours(0, 0, 0, 0);
+    bookingDate.setUTCHours(0, 0, 0, 0);
 
-    // Find the booking document by room, floor, date
-    const booking = await Booking.findOne({ areaId: roomId, floor: Number(floor), date: bookingDate });
+    // Find the booking document by room, floor (as number), date
+    const booking = await Booking.findOne({ 
+      areaId: roomId, 
+      floor: Number(floor), 
+      date: bookingDate 
+    });
     console.log("Booking found:", booking);
 
     if (!booking) {
       return res.status(404).json({ error: "Booking not found for given room/floor/date" });
     }
 
-    // Log all chair keys for debugging
     const chairKeys = Array.from(booking.chairs.keys());
     console.log("Chairs in booking:", chairKeys);
 
@@ -206,12 +209,12 @@ router.delete("/unbook/:roomId/:seatId/:floor/:date", async (req, res) => {
       return res.status(404).json({ error: "Seat not found in this booking" });
     }
 
-    // Convert Map to plain object, delete seatId, then re-assign to ensure proper Mongoose tracking
+    // Remove the seat from chairs map
     const chairsObj = Object.fromEntries(booking.chairs);
     delete chairsObj[seatId];
     booking.chairs = chairsObj;
 
-    // Save updated booking document
+    // Save updated booking
     await booking.save();
     console.log(`Seat ${seatId} successfully unbooked and booking saved`);
 
@@ -221,6 +224,7 @@ router.delete("/unbook/:roomId/:seatId/:floor/:date", async (req, res) => {
     return res.status(500).json({ error: "Failed to unbook seat due to server error" });
   }
 });
+
 
 
 export default router;
