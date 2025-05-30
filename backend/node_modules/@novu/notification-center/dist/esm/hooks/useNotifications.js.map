@@ -1,0 +1,1 @@
+{"version":3,"file":"useNotifications.js","sourceRoot":"","sources":["../../../src/hooks/useNotifications.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,UAAU,EAAE,MAAM,OAAO,CAAC;AAEnC,OAAO,EAAE,oBAAoB,EAAE,MAAM,gCAAgC,CAAC;AAGtE,MAAM,UAAU,gBAAgB;IAC9B,OAAO,UAAU,CAAwB,oBAAoB,CAAC,CAAC;AACjE,CAAC"}

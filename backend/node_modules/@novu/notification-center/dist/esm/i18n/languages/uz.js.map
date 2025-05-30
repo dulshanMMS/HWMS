@@ -1,0 +1,1 @@
+{"version":3,"file":"uz.js","sourceRoot":"","sources":["../../../../src/i18n/languages/uz.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,kBAAkB;QACjC,aAAa,EAAE,gCAAgC;QAC/C,SAAS,EAAE,gCAAgC;QAC3C,QAAQ,EAAE,YAAY;QACtB,iBAAiB,EAAE,8CAA8C;KAClE;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

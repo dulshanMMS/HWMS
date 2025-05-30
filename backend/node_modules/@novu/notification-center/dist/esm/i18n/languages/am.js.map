@@ -1,0 +1,1 @@
+{"version":3,"file":"am.js","sourceRoot":"","sources":["../../../../src/i18n/languages/am.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,SAAS;QACxB,aAAa,EAAE,0BAA0B;QACzC,SAAS,EAAE,UAAU;QACrB,QAAQ,EAAE,OAAO;QACjB,iBAAiB,EAAE,0BAA0B;KAC9C;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

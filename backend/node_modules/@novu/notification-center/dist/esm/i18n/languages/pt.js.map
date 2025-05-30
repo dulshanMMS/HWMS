@@ -1,0 +1,1 @@
+{"version":3,"file":"pt.js","sourceRoot":"","sources":["../../../../src/i18n/languages/pt.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,cAAc;QAC7B,aAAa,EAAE,uBAAuB;QACtC,SAAS,EAAE,kBAAkB;QAC7B,QAAQ,EAAE,eAAe;QACzB,iBAAiB,EAAE,kCAAkC;KACtD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"useProviderCheck.js","sourceRoot":"","sources":["../../../src/hooks/useProviderCheck.ts"],"names":[],"mappings":";AAAA;;;;GAIG;;;AAEH,SAAgB,gBAAgB,CAAI,OAAU;IAC5C,IAAI,OAAO,KAAK,IAAI,IAAI,OAAO,KAAK,SAAS,EAAE;QAC7C,MAAM,IAAI,KAAK,CACb,qGAAqG,CACtG,CAAC;KACH;IAED,OAAO,OAAO,CAAC;AACjB,CAAC;AARD,4CAQC"}

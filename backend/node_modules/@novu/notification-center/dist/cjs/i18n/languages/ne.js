@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NE = void 0;
+exports.NE = {
+    translations: {
+        notifications: 'सूचनाहरू',
+        markAllAsRead: 'सबै पढेको रूपमा चिन्ह लगाउनुहोस्',
+        poweredBy: 'द्वारा संचालित',
+        settings: 'सेटिङहरू',
+        noNewNotification: 'यहाँ हेर्न को लागी केहि नयाँ छैन',
+    },
+    lang: 'ne',
+};
+//# sourceMappingURL=ne.js.map

@@ -1,0 +1,1 @@
+{"version":3,"file":"en.js","sourceRoot":"","sources":["../../../../src/i18n/languages/en.ts"],"names":[],"mappings":";;;AAEa,QAAA,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,eAAe;QAC9B,aAAa,EAAE,kBAAkB;QACjC,SAAS,EAAE,YAAY;QACvB,QAAQ,EAAE,UAAU;QACpB,aAAa,EAAE,gBAAgB;QAC/B,UAAU,EAAE,cAAc;QAC1B,YAAY,EAAE,gBAAgB;QAC9B,iBAAiB,EAAE,6BAA6B;KACjD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

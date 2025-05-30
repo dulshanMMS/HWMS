@@ -1,0 +1,1 @@
+{"version":3,"file":"apiKeys.interface.d.ts","sourceRoot":"","sources":["../../../../src/entities/apiKeys/apiKeys.interface.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,OAAO;IACtB,GAAG,EAAE,MAAM,CAAC;IACZ,OAAO,EAAE,MAAM,CAAC;IAChB,IAAI,CAAC,EAAE,MAAM,CAAC;CACf"}

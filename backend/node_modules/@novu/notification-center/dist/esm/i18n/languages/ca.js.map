@@ -1,0 +1,1 @@
+{"version":3,"file":"ca.js","sourceRoot":"","sources":["../../../../src/i18n/languages/ca.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,eAAe;QAC9B,aAAa,EAAE,yBAAyB;QACxC,SAAS,EAAE,sBAAsB;QACjC,QAAQ,EAAE,cAAc;QACxB,iBAAiB,EAAE,wCAAwC;KAC5D;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}
