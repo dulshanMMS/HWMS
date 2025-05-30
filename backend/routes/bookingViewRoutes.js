@@ -4,23 +4,25 @@ import {
   getRecentUserBookings,
   getUserBookingsByDate,
   getUserBookingsView,
-  getRecentParkingBookings, 
+  getRecentParkingBookings,
 } from "../controllers/bookingViewController.js";
 
 const router = express.Router();
 
-// Calendar view (all bookings for current user)
+// Fetch all bookings for calendar view of the logged-in user
+// Protected route requiring authentication
 router.get("/user-view", verifyToken, getUserBookingsView);
 
-//Bookings for a specific date (optional, used by calendar)
+// Fetch bookings for a specific date (used by calendar UI)
+// Protected route
 router.get("/calendar/:date", verifyToken, getUserBookingsByDate);
 
-// Dashboard summary bookings
+// Fetch recent bookings for dashboard summary (seat + parking)
+// Protected route
 router.get("/recent", verifyToken, getRecentUserBookings);
 
-// ast 3 parking bookings only
-router.get("/parking-recent", verifyToken, getRecentParkingBookings); // 
-
-router.get("/recent-parking", verifyToken, getRecentParkingBookings);
+// Fetch recent parking bookings only, limited to 3 results
+// Protected route
+router.get("/parking-recent", verifyToken, getRecentParkingBookings);
 
 export default router;

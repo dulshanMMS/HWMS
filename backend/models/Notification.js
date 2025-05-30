@@ -37,6 +37,7 @@ const notificationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+
   title: {
     type: String,
     required: true
@@ -61,7 +62,11 @@ const notificationSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  username: {
+    type: String,
+    required: true
+  },
 });
 
 const Notification = mongoose.model('Notification', notificationSchema);

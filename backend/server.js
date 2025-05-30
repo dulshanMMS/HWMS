@@ -15,9 +15,11 @@ import historyRoutes from "./routes/historyRoutes.js";
 import bookingRoutes from './routes/bookingRoutes.js';
 import eventRoutes from './routes/events.js';
 import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";
-import userRoutes from "./routes/user.js";
+import userRoutes from "./routes/userRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import bookingViewRoutes from './routes/bookingViewRoutes.js';
+import supportRoutes from './routes/supportRoutes.js';
+import teamRoutes from "./routes/teamRoutes.js";
 
 dotenv.config();
 
@@ -52,6 +54,8 @@ app.use("/api/admin/parking", parkingAdminRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
+app.use('/api/support', supportRoutes);
+app.use("/api", teamRoutes);
 
 // Test Routes
 app.get("/", (req, res) => {
