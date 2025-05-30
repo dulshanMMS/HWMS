@@ -13,7 +13,11 @@ const UserSchema = new mongoose.Schema({
     country: { type: String },
     language: { type: String },
     timeZone: { type: String },
+<<<<<<< HEAD
     program: { type: String },
+=======
+    teamId: { type: String, default: "" },
+>>>>>>> development
     vehicleNumber: { type: String },
 
 
