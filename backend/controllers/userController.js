@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+
 import Team from "../models/Team.js";
 
 /**
@@ -17,9 +18,11 @@ export const getUserProfile = async (req, res) => {
     const user = await User.findById(userId).select("-password");
 
     // Handle case where user is not found
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
 
     let teamName = null;
     // If user has a team ID, fetch the corresponding team name
@@ -47,10 +50,12 @@ export const getUserProfile = async (req, res) => {
  * req - Express request object; expects updates in req.body.
  * res - Express response object used to send updated user data.
  */
+
 export const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const updates = req.body;
+
 
     // Find user by ID and apply updates, return the new document excluding password
     const updatedUser = await User.findByIdAndUpdate(userId, updates, {
@@ -64,5 +69,6 @@ export const updateUserProfile = async (req, res) => {
     // Log error and notify client about update failure
     console.error("Failed to update user profile:", error);
     res.status(500).json({ message: "Failed to update profile" });
+
   }
 };

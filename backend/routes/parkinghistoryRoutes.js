@@ -6,12 +6,8 @@ const router = express.Router();
 
 // Get Booking History (Total bookings + Dates) - Auth Required
 router.post("/user", verifyToken, async (req, res) => {
-    const { type } = req.body; // Only type is needed from body parking or seat
+    const { type } = req.body; // Type is still received from frontend as "parking"
     const userName = req.user.username; //  Extracted from token
-
-    if (type !== "parking") {
-        return res.status(400).json({ message: "Seat booking history not yet implemented." });      // only parkingbookings yet..have to update seats also 
-    }
 
     try {
         const slots = await ParkingSlot.find({ "bookings.userName": userName });      //identitfy the bookings according to the username
@@ -42,10 +38,6 @@ router.post("/user", verifyToken, async (req, res) => {
 router.post("/user/details", verifyToken, async (req, res) => {
     const { type, date } = req.body;
     const userName = req.user.username; //  From token
-
-    if (type !== "parking") {
-        return res.status(400).json({ message: "Seat booking history not yet implemented." });
-    }
 
     try {
         const slots = await ParkingSlot.find({ "bookings.userName": userName });
@@ -108,8 +100,8 @@ router.delete("/user/delete", verifyToken, async (req, res) => {
         return res.json({ message: "Booking deleted successfully." });
 
     } catch (error) {
-        return res.status(500).json({ message: "Error deleting booking", error });
-    }
+        return res.status(500).json({ message: "Error deleting booking", error });
+    }
 });
 
 export default router;

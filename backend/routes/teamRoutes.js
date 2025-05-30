@@ -1,3 +1,4 @@
+
 import express from "express";
 import Team from "../models/Team.js";
 
@@ -15,5 +16,6 @@ router.get("/teams", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch teams" });
   }
 });
+
 
 export default router;
