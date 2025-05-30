@@ -10,7 +10,7 @@ import parkingRoutes from "./routes/parkingRoutes.js";
 import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
-import notificationRoutes from "./routes/notificationRoutes.js";
+
 import Booking from "./models/Booking.js";
 
 import parkinghistoryRoutes from "./routes/parkinghistoryRoutes.js"; //history
