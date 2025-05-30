@@ -7,6 +7,7 @@ const notificationSchema = new mongoose.Schema({
     index: true,
     required: true
   },
+
   title: {
     type: String,
     required: true,
