@@ -297,6 +297,10 @@ export const analytics = async (req, res) => {
             programBookings
         });
     } catch (error) {
+        if (error.code === 'ECONNRESET') {
+            console.error('ECONNRESET: Connection to MongoDB was reset.');
+            return res.status(503).json({ error: 'Database connection was reset. Please try again later.' });
+        }
         console.error('Error fetching analytics:', error);
         res.status(500).json({ error: 'Failed to fetch analytics data' });
     }
@@ -426,6 +430,14 @@ export const allBookings = async (req, res) => {
 
         res.json(formattedBookings);
     } catch (error) {
+        if (error.code === 'ECONNRESET') {
+            console.error('ECONNRESET: Connection to MongoDB was reset.');
+            return res.status(503).json({ 
+                error: 'Database connection was reset. Please try again later.',
+                details: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            });
+        }
         console.error('Detailed error in all-bookings endpoint:', error);
         res.status(500).json({ 
             error: 'Failed to fetch bookings',
