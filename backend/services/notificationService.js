@@ -2,7 +2,7 @@ import Notification from '../models/Notification.js';
 import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
-//import sendEmail from './emailService.js'; // Adjust if located elsewhere
+import sendEmail from './emailService.js'; // ✅ FIXED: Import sendEmail
 
 // Fetch all notifications for a user
 export async function getAllNotifications(userId) {

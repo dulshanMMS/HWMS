@@ -63,7 +63,7 @@ app.use("/api/admin/parking", parkingAdminRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
-app.use('/api/teams', teamRoutes);
+app.use('/api', teamRoutes);
 
 
 // Test Routes
