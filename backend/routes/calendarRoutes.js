@@ -4,10 +4,14 @@ import verifyToken from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Public holidays/events
+
+// Route to get all public holidays and events
+// No authentication required - publicly accessible
 router.get("/events", getAllEvents);
 
-// Authenticated user’s bookings
+// Route to get bookings for the logged-in user
+// Requires valid JWT token (authentication)
+
 router.get("/bookings", verifyToken, getUserBookings);
 
 export default router;
