@@ -1,6 +1,7 @@
 
 import express from "express";
 import Team from "../models/Team.js";
+import { getAllTeams, addTeam } from '../controllers/teamController.js';
 
 const router = express.Router();
 
@@ -17,5 +18,8 @@ router.get("/teams", async (req, res) => {
   }
 });
 
+// GET /api/teams - Fetch all team color details from here
+router.get('/', getAllTeams);
+router.post('/', addTeam);
 
 export default router;
