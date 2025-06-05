@@ -49,4 +49,20 @@ router.get("/profile", verifyToken, getUserProfile);
 router.put("/profile", verifyToken, updateUserProfile);
 
 
+//Maleesha
+// GET /api/user?teamId=T001 - Fetch users by teamId
+router.get("/", async (req, res) => {
+  try {
+    const { teamId } = req.query;
+    if (!teamId) return res.status(400).json({ error: "teamId is required" });
+
+    const users = await User.find({ teamId }).select("userName firstName lastName");
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users by teamId:", error);
+    res.status(500).json({ error: "Server error while fetching users" });
+  }
+});
+
+
 export default router;

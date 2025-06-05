@@ -1,4 +1,5 @@
 import Team from '../models/Team.js';
+import User from '../models/User.js';
 
 // GET: Fetch all teams (only name and color)
 export const getAllTeams = async (req, res) => {
@@ -32,5 +33,18 @@ export const addTeam = async (req, res) => {
   } catch (err) {
     console.error('Error adding team:', err);
     res.status(500).json({ message: 'Server error while adding team' });
+  }
+};
+
+// GET: Fetch users by teamId
+export const getTeamMembers = async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    const users = await User.find({ teamId }).select('fullName email userName'); // Adjust fields as needed
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching team members:', error);
+    res.status(500).json({ message: 'Server error while fetching team members' });
   }
 };
