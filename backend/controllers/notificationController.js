@@ -1,4 +1,5 @@
 import * as NotificationService from '../services/notificationService.js';
+import User from '../models/User.js';
 
 export const getAllNotifications = async (req, res) => {
   try {
@@ -78,14 +79,40 @@ export const sendNotification = async (req, res) => {
 
 export const sendBulkNotification = async (req, res) => {
   try {
-    if (!req.user.isAdmin) return res.status(403).json({ message: 'Not authorized' });
+    if (!req.user?.role || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized" });
+    }
 
-    const notifications = await NotificationService.sendBulkNotifications(req.body);
-    res.json(notifications);
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: "Message is required" });
+    }
+
+    const users = await User.find({}, "_id");
+    const recipients = users.map(u => u._id);
+    console.log("📬 Sending announcement to:", recipients.length, "users");
+
+    console.log("📬 Total users to notify:", recipients.length);
+
+    if (!recipients.length) {
+      return res.status(400).json({ message: "No users found to notify" });
+    }
+
+    const result = await NotificationService.sendBulkNotifications({
+      recipients,
+      title: "Announcement",
+      message,
+      type: "important",
+      emailSubject: "New Announcement from Admin"
+    });
+
+    res.json({ success: true, message: "Announcement sent", count: result.length });
   } catch (error) {
-    res.status(500).json({ message: 'Error sending bulk notifications', error: error.message });
+    console.error("❌ Error in sendBulkNotification:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const getNotifications = async (req, res) => {
   try {

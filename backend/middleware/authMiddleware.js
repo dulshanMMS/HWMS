@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import User from '../models/User.js';
 
 // Email Validation
 export const validateEmail = (email) => {
@@ -45,16 +46,26 @@ export const isAdmin = (req, res, next) => {
 };
 
 // Middleware to check authentication
-const authenticate = (req, res, next) => {
-  const token = req.headers['authorization'];
-  if (!token) {
-    return res.status(401).json({ message: 'Please log in to view notifications' });
-  }
+export const authenticateUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
 
-  // Verify token logic here
-  // If valid, call next()
-  // If invalid, return res.status(401).json({ message: 'Invalid token' });
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(401).json({ message: "User not found" });
+
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
 };
 
-// You can export verifyToken as default and also as a named export
+
 export default verifyToken;

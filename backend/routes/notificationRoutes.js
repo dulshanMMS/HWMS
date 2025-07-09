@@ -14,6 +14,7 @@ import {
 } from '../controllers/notificationController.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
 import { getNotificationPreferences, updateNotificationPreferences } from '../services/notificationService.js';
+import { authenticateUser } from '../middleware/authMiddleware.js'; 
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.delete('/:id', verifyToken, deleteNotification);
 router.get('/admin', getAdminNotifications);
 router.get('/admin/unread-count', getAdminUnreadCount);
 router.post('/send', sendNotification);
-router.post('/send-bulk', sendBulkNotification);
+router.post('/send-bulk', authenticateUser, sendBulkNotification);
 
 // Route to get all notifications
 router.get('/', verifyToken, getNotifications);
