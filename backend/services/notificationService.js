@@ -125,7 +125,7 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
   console.log(`✅ Saved ${savedNotifications.length} notifications`);
   return savedNotifications;
 }
-
+}
 // Main function to create booking notifications
 export async function createBookingNotifications(bookingData) {
   const { userId, slotNumber, floor, type, date, entryTime, exitTime, bookingId } = bookingData;
