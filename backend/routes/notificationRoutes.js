@@ -16,6 +16,7 @@ import {
 } from '../controllers/notificationController.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
 import { getNotificationPreferences, updateNotificationPreferences } from '../services/notificationService.js';
+import { authenticateUser } from '../middleware/authMiddleware.js'; 
 
 const router = express.Router();
 

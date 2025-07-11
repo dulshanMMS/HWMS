@@ -100,14 +100,18 @@ export async function sendNotification({ recipient, title, message, type, emailS
 
 // Bulk notification creation
 export async function sendBulkNotifications({ recipients, title, message, type, emailSubject }) {
-  const notifications = recipients.map(recipient => ({
-    recipient,
-    title,
-    message,
-    type
-  }));
+  const savedNotifications = [];
 
-  const result = await Notification.insertMany(notifications);
+  for (const recipient of recipients) {
+    const notification = new Notification({
+      recipient,
+      title,
+      message,
+      type
+    });
+
+    const saved = await notification.save(); // ✅ triggers all schema defaults
+    savedNotifications.push(saved);
 
   if (emailSubject) {
   const users = await User.find({ _id: { $in: recipients } });
@@ -118,7 +122,8 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
     }
   }
 
-  return result;
+  console.log(`✅ Saved ${savedNotifications.length} notifications`);
+  return savedNotifications;
 }
 
 // Main function to create booking notifications
