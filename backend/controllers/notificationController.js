@@ -96,3 +96,71 @@ export const getNotifications = async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 };
+
+import { getNotificationsForAdmin } from '../services/notificationService.js';
+
+export const getAdminOwnNotifications = async (req, res) => {
+  try {
+    const adminId = req.user.id; // assuming authentication middleware sets req.user
+    const notifications = await getNotificationsForAdmin(adminId);
+    res.status(200).json(notifications);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while fetching admin notifications' });
+  }
+};
+
+// New method to manually trigger booking notification
+export const createBookingNotification = async (req, res) => {
+  try {
+    const { userId, slotNumber, floor, type, date, entryTime, exitTime, bookingId } = req.body;
+    
+    const result = await NotificationService.createBookingNotifications({
+      userId,
+      slotNumber,
+      floor,
+      type,
+      date,
+      entryTime,
+      exitTime,
+      bookingId
+    });
+    
+    res.status(201).json({
+      message: 'Booking notifications created successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error creating booking notification:', error);
+    res.status(500).json({ 
+      message: 'Error creating booking notification', 
+      error: error.message 
+    });
+  }
+};
+
+// New method to manually trigger cancellation notification
+export const createCancellationNotification = async (req, res) => {
+  try {
+    const { userId, slotNumber, floor, type, date, bookingId } = req.body;
+    
+    const result = await NotificationService.createCancellationNotifications({
+      userId,
+      slotNumber,
+      floor,
+      type,
+      date,
+      bookingId
+    });
+    
+    res.status(201).json({
+      message: 'Cancellation notifications created successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error creating cancellation notification:', error);
+    res.status(500).json({ 
+      message: 'Error creating cancellation notification', 
+      error: error.message 
+    });
+  }
+};

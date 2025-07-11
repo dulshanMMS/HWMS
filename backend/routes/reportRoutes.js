@@ -1,6 +1,6 @@
 import express from 'express';
-import Booking from '../models/Booking.js';
-import User from '../models/User.js';
+import ParkingSlot from '../models/ParkingSlots.js';
+import SeatingSlot from '../models/SeatingSlots.js';
 import { teamLookup, userLookup, analytics, userBookings, recentBookings, floorUsage, allBookings } from '../controllers/reportController.js';
 
 const router = express.Router();
