@@ -1,5 +1,4 @@
 import express from 'express';
-import auth from './auth.js';
 import {
   getAllNotifications,
   getAdminNotifications,
@@ -10,7 +9,10 @@ import {
   deleteNotification,
   sendNotification,
   sendBulkNotification,
-  getNotifications
+  getNotifications,
+  createBookingNotification,
+  createCancellationNotification,
+  getAdminOwnNotifications
 } from '../controllers/notificationController.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
 import { getNotificationPreferences, updateNotificationPreferences } from '../services/notificationService.js';
@@ -18,24 +20,25 @@ import { authenticateUser } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Authenticated routes
-router.use(auth);
-
 // User routes
-router.get('/user', getAllNotifications);
-router.get('/unread-count', getUnreadNotificationCount);
-router.put('/:id/mark-read', markAsRead);
-router.put('/mark-all-read', markAllAsRead);
+router.get('/user', verifyToken, getAllNotifications);
+router.get('/unread-count', verifyToken, getUnreadNotificationCount);
+router.put('/:id/mark-read', verifyToken, markAsRead);
+router.put('/mark-all-read', verifyToken, markAllAsRead);
 router.delete('/:id', verifyToken, deleteNotification);
 
-
 // Admin routes
-router.get('/admin', getAdminNotifications);
-router.get('/admin/unread-count', getAdminUnreadCount);
-router.post('/send', sendNotification);
-router.post('/send-bulk', authenticateUser, sendBulkNotification);
+router.get('/admin', verifyToken, getAdminNotifications);
+router.get('/admin/unread-count', verifyToken, getAdminUnreadCount);
+router.get('/admin/own', verifyToken, getAdminOwnNotifications);
+router.post('/send', verifyToken, sendNotification);
+router.post('/send-bulk', verifyToken, sendBulkNotification);
 
-// Route to get all notifications
+// Booking notification routes
+router.post('/booking', verifyToken, createBookingNotification);
+router.post('/cancellation', verifyToken, createCancellationNotification);
+
+// General routes
 router.get('/', verifyToken, getNotifications);
 
 // Notification preferences routes

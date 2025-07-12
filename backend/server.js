@@ -5,19 +5,25 @@ import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
 import bookingRoutes from "./routes/seatBookings.js";
-import parkingRoutes from './routes/parkingRoutes.js';
 import teamRoutes from "./routes/teamRoutes.js";
 import authRoutes from './routes/auth.js';
 
-// Comment out missing imports - uncomment these as you create the files
-// import reportRoutes from './routes/reports.js';
-// import parkinghistoryRoutes from './routes/parkingHistory.js';
-// import parkingAdminRoutes from './routes/parkingAdmin.js';
-// import notificationRoutes from './routes/notifications.js';
-// import eventRoutes from './routes/events.js';
-// import userRoutes from './routes/user.js';
-// import calendarRoutes from './routes/calendar.js';
-// import bookingViewRoutes from './routes/bookingView.js';
+import parkingRoutes from "./routes/parkingRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import { initializeNotificationSystem } from './services/notificationService.js';
+
+import ParkingSlot from './models/ParkingSlots.js';
+import SeatingSlot from './models/SeatingSlots.js';
+import Notification from "./models/Notification.js";
+
+import parkinghistoryRoutes from "./routes/parkinghistoryRoutes.js"; //history
+import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";   //parking_admin
+import eventRoutes from './routes/events.js';
+import userRoutes from "./routes/user.js";
+import calendarRoutes from "./routes/calendarRoutes.js";
+import bookingViewRoutes from './routes/bookingViewRoutes.js';
+
 
 dotenv.config();
 
@@ -40,20 +46,18 @@ app.use(express.json());
 // Routes - only include existing routes, comment out missing ones
 app.use("/api/auth", authRoutes);
 app.use("/api/parking", parkingRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/history", parkinghistoryRoutes);  // history
+app.use("/api/admin/parking", parkingAdminRoutes);  // parking admin
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/calendar", calendarRoutes);
+app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
 
-// Comment out these routes until you create the corresponding files
-// app.use("/api/reports", reportRoutes);
-// app.use("/api/history", parkinghistoryRoutes);
-// app.use("/api/admin/parking", parkingAdminRoutes);
-// app.use("/api/notifications", notificationRoutes);
-// app.use("/api/events", eventRoutes);
-// app.use("/api/user", userRoutes);
-// app.use("/api/calendar", calendarRoutes);
-// app.use('/api/calendar', bookingViewRoutes);
-
-// Test Routes - removed duplicate res.send()
+// Test Routes
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
@@ -188,3 +192,44 @@ server.listen(PORT, (err) => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
 });
+// MongoDB Connection
+const mongoURI = process.env.MONGO_URI;
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(async () => {
+    console.log('MongoDB Connected');
+
+    // Compute total bookings from SeatingSlot and ParkingSlot
+    const seatingSlots = await SeatingSlot.find();
+    const parkingSlots = await ParkingSlot.find();
+
+    const totalSeatBookings = seatingSlots.reduce((sum, slot) => sum + slot.bookings.length, 0);
+    const totalParkingBookings = parkingSlots.reduce((sum, slot) => sum + slot.bookings.length, 0);
+    const notificationCount = await Notification.countDocuments();
+
+    console.log(`Bookings: ${totalSeatBookings + totalParkingBookings}, Notifications: ${notificationCount}`);
+
+    initializeNotificationSystem();
+  })
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// WebSocket Setup
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("newNotification", async (notification) => {
+    try {
+      const newNotification = new Notification(notification);
+      await newNotification.save();
+      io.emit("notificationReceived", newNotification);
+    } catch (error) {
+      console.error("Error creating notification:", error);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
+
+// Start Server
+
