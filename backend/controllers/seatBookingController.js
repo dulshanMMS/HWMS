@@ -105,7 +105,7 @@ export const bookSeatForMember = async (req, res) => {
     const { roomId, areaId, teamName, floor, date, entryTime, exitTime, memberName, teamColor, color } = req.body;
     const actualAreaId = areaId || roomId; // Support both field names
     const actualTeamColor = teamColor || color;
-    const actualMemberName = memberName || userName;
+    const actualUserName = memberName || userName;
     
     // Basic validation
     if (!actualAreaId || !teamName || !floor || !date || !entryTime || !exitTime) {
@@ -139,7 +139,7 @@ export const bookSeatForMember = async (req, res) => {
       date, 
       entryTime, 
       exitTime,
-      actualMemberName,
+      actualUserName,
       actualTeamColor 
     });
 
@@ -173,11 +173,11 @@ export const bookSeatForMember = async (req, res) => {
     };
 
     // Add booking to member's record
-    const result = await addBookingToMember(actualMemberName, teamData, bookingData);
+    const result = await addBookingToMember(actualUserName, teamData, bookingData);
     
     console.log("✅ Booking saved successfully!");
     console.log("📊 Booking details:", {
-      memberName: actualMemberName,
+      userName: actualUserName,
       bookingId: result.bookingId,
       totalBookings: result.totalBookings,
       teamName: teamData.teamName
@@ -189,7 +189,7 @@ export const bookSeatForMember = async (req, res) => {
       success: true,
       booking: {
         bookingId: result.bookingId,
-        memberName: actualMemberName,
+        userName: actualUserName,
         seatId: seatId,
         date: date,
         timeSlot: `${entryTime} - ${exitTime}`,
@@ -317,7 +317,7 @@ export const bookSeatForTeamMember = async (req, res) => {
       success: true,
       booking: {
         bookingId: result.bookingId,
-        memberName: teamMemberName,
+        userName: teamMemberName,
         bookedBy: userName,
         seatId: seatId,
         date: date,
@@ -382,7 +382,7 @@ export const unbookSeat = async (req, res) => {
     const { memberRecord, booking } = foundBooking;
     
     console.log("🎯 Found booking:", {
-      memberName: memberRecord.memberName,
+      userName: memberRecord.userName,
       bookingId: booking.bookingId,
       seatId: booking.seatId,
       timeSlot: `${booking.entryTime} - ${booking.exitTime}`
@@ -390,7 +390,7 @@ export const unbookSeat = async (req, res) => {
 
     // Remove booking from member's record
     const result = await removeBookingFromMember(
-      memberRecord.memberName,
+      memberRecord.userName,
       memberRecord.teamId,
       booking.seatId,
       booking.date,
@@ -406,7 +406,7 @@ export const unbookSeat = async (req, res) => {
       message: `Seat ${seatId} unbooked successfully!`, 
       success: true,
       details: {
-        memberName: memberRecord.memberName,
+        userName: memberRecord.userName,
         removedBookingId: booking.bookingId,
         remainingBookings: result.remainingBookings,
         timeSlot: `${booking.entryTime} - ${booking.exitTime}`
@@ -430,7 +430,7 @@ export const getMemberStats = async (req, res) => {
     const stats = await getMemberBookingStats(userName, teamId);
     
     res.json({
-      memberName: userName,
+      userName: userName,
       ...stats
     });
   } catch (error) {

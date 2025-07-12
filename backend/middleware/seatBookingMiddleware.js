@@ -6,7 +6,7 @@ export const sanitizeSeatBookingInput = (req, res, next) => {
   try {
     if (req.body) {
       // Trim whitespace from string fields
-      const stringFields = ['memberName', 'teamName', 'roomId', 'areaId', 'teamColor', 'color'];
+      const stringFields = ['userName', 'teamName', 'roomId', 'areaId', 'teamColor', 'color'];
       stringFields.forEach(field => {
         if (req.body[field] && typeof req.body[field] === 'string') {
           req.body[field] = req.body[field].trim();

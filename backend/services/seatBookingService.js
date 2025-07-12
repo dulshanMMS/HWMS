@@ -1,5 +1,5 @@
 // services/seatBookingService.js - Member-wise booking service
-import MemberBooking from "../models/seatBooking.js";
+import SeatingSlots from "../models/SeatingSlots.js";
 import Team from "../models/Team.js";
 import User from "../models/User.js";
 import { 
@@ -9,12 +9,12 @@ import {
 } from "./seatValidationService.js";
 
 // Utility functions moved from model
-export const generateBookingId = (memberName) => {
-  return `${memberName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+export const generateBookingId = (userName) => {
+  return `${userName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 };
 
 export const addBookingToRecord = (memberRecord, bookingData) => {
-  const bookingId = generateBookingId(memberRecord.memberName);
+  const bookingId = generateBookingId(memberRecord.userName);
   
   memberRecord.bookings.push({
     bookingId,
@@ -77,12 +77,12 @@ export const getFutureBookings = (memberRecord) => {
 };
 
 // Database query functions moved from model statics
-export const findMemberCurrentRecord = async (memberName) => {
-  return await MemberBooking.findOne({ memberName, status: 'active' });
+export const findMemberCurrentRecord = async (userName) => {
+  return await SeatingSlots.findOne({ userName, status: 'active' });
 };
 
-export const findMemberByTeam = async (memberName, teamId) => {
-  return await MemberBooking.findOne({ memberName, teamId, status: 'active' });
+export const findMemberByTeam = async (userName, teamId) => {
+  return await SeatingSlots.findOne({ userName, teamId, status: 'active' });
 };
 
 export const findBookingsByDateAndFloor = async (date, floor) => {
@@ -91,7 +91,7 @@ export const findBookingsByDateAndFloor = async (date, floor) => {
   const endDate = new Date(targetDate);
   endDate.setHours(23, 59, 59, 999);
   
-  return await MemberBooking.find({
+  return await SeatingSlots.find({
     status: 'active',
     'bookings.date': { $gte: targetDate, $lte: endDate },
     'bookings.floor': floor
@@ -99,14 +99,14 @@ export const findBookingsByDateAndFloor = async (date, floor) => {
 };
 
 // Get or create member's booking record for current team
-export const getOrCreateMemberRecord = async (memberName, teamData) => {
+export const getOrCreateMemberRecord = async (userName, teamData) => {
   // First, try to find existing record for current team
-  let memberRecord = await findMemberByTeam(memberName, teamData.teamId);
+  let memberRecord = await findMemberByTeam(userName, teamData.teamId);
   
   if (!memberRecord) {
     // Create new record for this member-team combination
-    memberRecord = new MemberBooking({
-      memberName,
+    memberRecord = new SeatingSlots({
+      userName,
       teamId: teamData.teamId,
       teamName: teamData.teamName,
       teamColor: teamData.teamColor,
@@ -116,7 +116,7 @@ export const getOrCreateMemberRecord = async (memberName, teamData) => {
     });
     
     await memberRecord.save();
-    console.log(`✅ Created new member record for ${memberName} in team ${teamData.teamName}`);
+    console.log(`✅ Created new member record for ${userName} in team ${teamData.teamName}`);
   }
   
   return memberRecord;
@@ -181,7 +181,7 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
             return {
               available: false,
               conflict: {
-                memberName: memberRecord.memberName,
+                userName: memberRecord.userName,
                 teamName: memberRecord.teamName,
                 existingTime: `${booking.entryTime} - ${booking.exitTime}`,
                 requestedTime: `${entryTime} - ${exitTime}`,
@@ -201,10 +201,10 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
 };
 
 // Add booking to member's record with all validation logic
-export const addBookingToMember = async (memberName, teamData, bookingData) => {
+export const addBookingToMember = async (userName, teamData, bookingData) => {
   try {
     // Get or create member record
-    const memberRecord = await getOrCreateMemberRecord(memberName, teamData);
+    const memberRecord = await getOrCreateMemberRecord(userName, teamData);
     
     // Business validation 1: Check for conflicts within this member's bookings
     const hasConflict = validateBookingConflict(
@@ -229,7 +229,7 @@ export const addBookingToMember = async (memberName, teamData, bookingData) => {
     );
     
     if (!availability.available) {
-      throw new Error(`Seat ${bookingData.seatId} is already booked by ${availability.conflict.memberName} from ${availability.conflict.existingTime}`);
+      throw new Error(`Seat ${bookingData.seatId} is already booked by ${availability.conflict.userName} from ${availability.conflict.existingTime}`);
     }
     
     // Business validation 3: Date validation (moved from model)
@@ -272,7 +272,7 @@ export const addBookingToMember = async (memberName, teamData, bookingData) => {
     // Save the record
     await memberRecord.save();
     
-    console.log(`✅ Added booking ${bookingId} for member ${memberName}`);
+    console.log(`✅ Added booking ${bookingId} for member ${userName}`);
     
     return {
       memberRecord,
@@ -287,13 +287,13 @@ export const addBookingToMember = async (memberName, teamData, bookingData) => {
 };
 
 // Remove booking from member's record
-export const removeBookingFromMember = async (memberName, teamId, seatId, date, entryTime, exitTime) => {
+export const removeBookingFromMember = async (userName, teamId, seatId, date, entryTime, exitTime) => {
   try {
     // Find member's record
-    const memberRecord = await findMemberByTeam(memberName, teamId);
+    const memberRecord = await findMemberByTeam(userName, teamId);
     
     if (!memberRecord) {
-      throw new Error(`No booking record found for member ${memberName} in team ${teamId}`);
+      throw new Error(`No booking record found for member ${userName} in team ${teamId}`);
     }
     
     // Remove booking by seat and date
@@ -306,7 +306,7 @@ export const removeBookingFromMember = async (memberName, teamId, seatId, date, 
     // Save the updated record
     await memberRecord.save();
     
-    console.log(`✅ Removed booking for seat ${seatId} from member ${memberName}`);
+    console.log(`✅ Removed booking for seat ${seatId} from member ${userName}`);
     
     return {
       memberRecord,
@@ -363,7 +363,7 @@ export const verifyUserPermissions = async (username, teamName, targetMemberName
 // Get all bookings for display (transform to old format for compatibility)
 export const getAllBookingsForDisplay = async () => {
   try {
-    const memberRecords = await MemberBooking.find({ status: 'active' });
+    const memberRecords = await SeatingSlots.find({ status: 'active' });
     const result = { chairs: {} };
     
     memberRecords.forEach(memberRecord => {
@@ -375,7 +375,7 @@ export const getAllBookingsForDisplay = async () => {
         
         if (bookingDate >= today) {
           result.chairs[booking.seatId] = {
-            memberName: memberRecord.memberName,
+            userName: memberRecord.userName,
             teamColor: memberRecord.teamColor,
             teamName: memberRecord.teamName,
             teamId: memberRecord.teamId,
@@ -404,7 +404,7 @@ export const getFilteredBookings = async (date, floor) => {
     const endDate = new Date(targetDate);
     endDate.setHours(23, 59, 59, 999);
     
-    const memberRecords = await MemberBooking.find({
+    const memberRecords = await SeatingSlots.find({
       status: 'active',
       'bookings.date': { $gte: targetDate, $lte: endDate },
       'bookings.floor': Number(floor)
@@ -419,7 +419,7 @@ export const getFilteredBookings = async (date, floor) => {
         // Check if booking matches our filter criteria
         if (bookingDate >= targetDate && bookingDate <= endDate && booking.floor === Number(floor)) {
           result.chairs[booking.seatId] = {
-            memberName: memberRecord.memberName,
+            userName: memberRecord.userName,
             teamColor: memberRecord.teamColor,
             teamName: memberRecord.teamName,
             teamId: memberRecord.teamId,
@@ -448,7 +448,7 @@ export const findBookingForUnbooking = async (seatId, floor, date, entryTime, ex
     const endDate = new Date(targetDate);
     endDate.setHours(23, 59, 59, 999);
     
-    const memberRecords = await MemberBooking.find({
+    const memberRecords = await SeatingSlots.find({
       status: 'active',
       'bookings.date': { $gte: targetDate, $lte: endDate },
       'bookings.floor': Number(floor),
@@ -483,14 +483,14 @@ export const findBookingForUnbooking = async (seatId, floor, date, entryTime, ex
 };
 
 // Get member's booking statistics
-export const getMemberBookingStats = async (memberName, teamId = null) => {
+export const getMemberBookingStats = async (userName, teamId = null) => {
   try {
-    let query = { memberName, status: 'active' };
+    let query = { userName, status: 'active' };
     if (teamId) {
       query.teamId = teamId;
     }
     
-    const memberRecord = await MemberBooking.findOne(query);
+    const memberRecord = await SeatingSlots.findOne(query);
     
     if (!memberRecord) {
       return {
