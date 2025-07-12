@@ -90,7 +90,7 @@ export const getTeamBookingsToday = async (req, res) => {
         const bookingDate = new Date(booking.date);
         if (!isSameDay(bookingDate, now)) continue;
 
-        const user = await User.findOne({ username: booking.userName }); // NOTE: your User model uses 'username'
+        const user = await User.findOne({ username: booking.userName }); 
 
         if (!user || !user.teamId) continue;
 
@@ -118,10 +118,10 @@ export const getTeamBookingsToday = async (req, res) => {
     }));
 
 
-    console.log("📊 Final teams result:", teamsResult);
+    //console.log("📊 Final teams result:", teamsResult);
     res.json({ success: true, teams: teamsResult });
   } catch (err) {
-    console.error("❌ Error in getTeamBookingsToday:", err);
+    //console.error("❌ Error in getTeamBookingsToday:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
