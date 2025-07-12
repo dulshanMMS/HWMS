@@ -104,10 +104,10 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
 
   for (const recipient of recipients) {
     const notification = new Notification({
-      recipient,
-      title,
-      message,
-      type
+    recipient,
+    title,
+    message,
+    type
     });
 
     const saved = await notification.save(); // ✅ triggers all schema defaults

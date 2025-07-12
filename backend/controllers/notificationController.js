@@ -1,5 +1,8 @@
 import * as NotificationService from '../services/notificationService.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js'; // Ensure this is imported
+
+
 
 export const getAllNotifications = async (req, res) => {
   try {
@@ -114,15 +117,45 @@ export const sendBulkNotification = async (req, res) => {
 };
 
 
+// export const getNotifications = async (req, res) => {
+//   try {
+//     const { page = 1, limit = 20 } = req.query;
+//     const data = await NotificationService.getNotifications(page, limit);
+//     res.json(data);
+//   } catch (error) {
+//     res.status(500).json({ error: 'Internal Server Error', message: error.message });
+//   }
+// };
+
 export const getNotifications = async (req, res) => {
+  console.log(">>> getNotifications hit");
+  
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const data = await NotificationService.getNotifications(page, limit);
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    console.log(`Fetching notifications: page=${page}, limit=${limit}, skip=${skip}`);
+
+    // Fetch notifications
+    const notifications = await Notification.find({ deleted: false })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    console.log("✅ Notifications found:", notifications.length);
+
+    // Count total
+    const total = await Notification.countDocuments({ deleted: false });
+    console.log("✅ Total notifications:", total);
+
+    res.json({ notifications, total });
+  } catch (err) {
+    console.error("🔥 Error in getNotifications:", err);
+    res.status(500).json({ error: "Internal server error", message: err.message });
   }
 };
+
+
+
 
 import { getNotificationsForAdmin } from '../services/notificationService.js';
 
@@ -191,3 +224,35 @@ export const createCancellationNotification = async (req, res) => {
     });
   }
 };
+
+
+export const getUserOwnNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+
+    // Fetch notifications where:
+    // - This user is a direct recipient (in array)
+    // OR
+    // - It is an announcement to all users (broadcast)
+    const notifications = await Notification.find({
+      recipients: { $in: [userId] },  // matches personal notifications
+      deleted: false
+    })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit));
+
+    const total = await Notification.countDocuments({
+      recipients: { $in: [userId] },
+      deleted: false
+    });
+
+    res.status(200).json({ notifications, total });
+
+  } catch (error) {
+    console.error('🔥 Error fetching user own notifications:', error);
+    res.status(500).json({ message: 'Server error fetching user notifications' });
+  }
+};
+

@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getAllNotifications,
   getAdminNotifications,
+  getUserOwnNotifications,
   getUnreadNotificationCount,
   getAdminUnreadCount,
   markAsRead,
@@ -17,9 +18,12 @@ import {
 import { verifyToken } from '../middleware/authMiddleware.js';
 import { getNotificationPreferences, updateNotificationPreferences } from '../services/notificationService.js';
 import { authenticateUser } from '../middleware/authMiddleware.js'; 
+// Add this to allow /api/notifications/user/own
+
 
 const router = express.Router();
 
+router.get('/user/own', verifyToken, getAllNotifications);
 // User routes
 router.get('/user', verifyToken, getAllNotifications);
 router.get('/unread-count', verifyToken, getUnreadNotificationCount);
@@ -40,7 +44,7 @@ router.post('/cancellation', verifyToken, createCancellationNotification);
 
 // General routes
 router.get('/', verifyToken, getNotifications);
-
+router.get('/user/own', verifyToken, getUserOwnNotifications);
 // Notification preferences routes
 router.get('/preferences', verifyToken, async (req, res) => {
   try {

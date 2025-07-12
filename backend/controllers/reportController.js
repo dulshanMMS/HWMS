@@ -1,7 +1,16 @@
 import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
+import Team from '../models/Team.js';
 
+/**
+ * Get combined floor usage data (seating + parking) between a date range.
+ * Useful for visualizations grouped by floor and type (seat/parking).
+ *
+ * Query Params:
+ * - startDate: Start of date range (inclusive)
+ * - endDate: End of date range (inclusive)
+ */
 export const floorUsage = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -405,5 +414,77 @@ export const allBookings = async (req, res) => {
   } catch (error) {
     console.error('Detailed error in all-bookings endpoint:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+};
+
+
+
+export const getTeamStats = async (req, res) => {
+  try {
+    const { teamName } = req.query;
+    if (!teamName) return res.status(400).json({ message: 'Team name is required' });
+
+    // Find the team
+    const cleanedTeamName = teamName.trim().replace(/\s+/g, '\\s*');  // convert "team a" => "team\\s*a"
+    const regex = new RegExp(`^${cleanedTeamName}$`, 'i');             // full word match, case-insensitive
+    const team = await Team.findOne({ teamName: regex });
+
+    // const team = await Team.findOne({ teamName });
+    if (!team) return res.status(404).json({ message: 'Team not found' });
+
+    // Find team members
+    const members = await User.find({ teamId: team.teamId });
+    const memberUsernames = members.map(m => m.username);
+
+    // Calculate previous month
+    const now = new Date();
+    const firstDayPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    // Helper to count bookings in a slot array
+    const countBookings = (slots, usernames) => {
+      let count = 0;
+      for (const slot of slots) {
+        for (const booking of slot.bookings) {
+          if (
+            usernames.includes(booking.userName) &&
+            booking.date >= firstDayPrevMonth.toISOString().slice(0, 10) &&
+            booking.date <= lastDayPrevMonth.toISOString().slice(0, 10)
+          ) {
+            count++;
+          }
+        }
+      }
+      return count;
+    };
+
+    // Fetch all seating and parking slots
+    const [seatingSlots, parkingSlots] = await Promise.all([
+      SeatingSlot.find({}),
+      ParkingSlot.find({})
+    ]);
+
+    // Count seat and parking bookings for team members
+    const totalSeatBookings = countBookings(seatingSlots, memberUsernames);
+    const totalParkingBookings = countBookings(parkingSlots, memberUsernames);
+
+    // Team bookings = seat + parking
+    const totalTeamBookings = totalSeatBookings + totalParkingBookings;
+
+    res.json({
+      teamMembers: members.map(m => ({
+        id: m._id,
+        username: m.username,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        email: m.email
+      })),
+      totalSeatBookings,
+      totalParkingBookings,
+      totalTeamBookings
+    });
+  } catch (error) {
+    console.error('Error fetching team stats:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
