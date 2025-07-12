@@ -1,17 +1,66 @@
 import express from "express";
 import mongoose from "mongoose";
+import http from "http";
+import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
 import bookingRoutes from "./routes/seatBookings.js";
+import parkingRoutes from './routes/parkingRoutes.js';
 import teamRoutes from "./routes/teamRoutes.js";
 import authRoutes from './routes/auth.js';
+
+// Comment out missing imports - uncomment these as you create the files
+// import reportRoutes from './routes/reports.js';
+// import parkinghistoryRoutes from './routes/parkingHistory.js';
+// import parkingAdminRoutes from './routes/parkingAdmin.js';
+// import notificationRoutes from './routes/notifications.js';
+// import eventRoutes from './routes/events.js';
+// import userRoutes from './routes/user.js';
+// import calendarRoutes from './routes/calendar.js';
+// import bookingViewRoutes from './routes/bookingView.js';
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app); // Create HTTP server
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173", // Specific origin instead of "*"
+    methods: ["GET", "POST"],
+    credentials: true // Allow credentials
+  }
+});
+
+// Export io so other files can use it
+export { io };
+
 app.use(cors());
 app.use(express.json());
+
+// Routes - only include existing routes, comment out missing ones
 app.use("/api/auth", authRoutes);
+app.use("/api/parking", parkingRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use('/api', teamRoutes);
+
+// Comment out these routes until you create the corresponding files
+// app.use("/api/reports", reportRoutes);
+// app.use("/api/history", parkinghistoryRoutes);
+// app.use("/api/admin/parking", parkingAdminRoutes);
+// app.use("/api/notifications", notificationRoutes);
+// app.use("/api/events", eventRoutes);
+// app.use("/api/user", userRoutes);
+// app.use("/api/calendar", calendarRoutes);
+// app.use('/api/calendar', bookingViewRoutes);
+
+// Test Routes - removed duplicate res.send()
+app.get("/", (req, res) => {
+  res.send("API is running...");
+});
+
+app.get("/api/test", (req, res) => {
+  res.json({ message: "Connection successful!", timestamp: new Date().toISOString() });
+});
 
 // MongoDB connection with proper error handling and retry logic
 const connectDB = async () => {
@@ -80,9 +129,14 @@ app.get('/health', (req, res) => {
 // Initialize database connection
 connectDB();
 
-// Routes
-app.use("/api/bookings", bookingRoutes);
-app.use("/api/teams", teamRoutes);
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('🔌 A user connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('🔌 User disconnected:', socket.id);
+  });
+});
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -123,9 +177,13 @@ process.on('SIGTERM', async () => {
   }
 });
 
-// Start the server
+// Start the server - use server.listen instead of app.listen
 const PORT = process.env.PORT || 5004;
-app.listen(PORT, () => {
+server.listen(PORT, (err) => {
+  if (err) {
+    console.error(`❌ Failed to start server on port ${PORT}:`, err.message);
+    process.exit(1);
+  }
   console.log(`🚀 Server is running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);

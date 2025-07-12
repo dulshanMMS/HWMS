@@ -1,0 +1,1 @@
+{"version":3,"file":"fa.js","sourceRoot":"","sources":["../../../../src/i18n/languages/fa.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,SAAS;QACxB,aAAa,EAAE,sCAAsC;QACrD,SAAS,EAAE,mBAAmB;QAC9B,QAAQ,EAAE,SAAS;QACnB,iBAAiB,EAAE,2CAA2C;KAC/D;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"nl.js","sourceRoot":"","sources":["../../../../src/i18n/languages/nl.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,cAAc;QAC7B,aAAa,EAAE,2BAA2B;QAC1C,SAAS,EAAE,kBAAkB;QAC7B,QAAQ,EAAE,cAAc;QACxB,iBAAiB,EAAE,kCAAkC;KACtD;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

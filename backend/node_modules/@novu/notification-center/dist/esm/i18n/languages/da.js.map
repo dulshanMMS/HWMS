@@ -1,0 +1,1 @@
+{"version":3,"file":"da.js","sourceRoot":"","sources":["../../../../src/i18n/languages/da.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,EAAE,GAAsB;IACnC,YAAY,EAAE;QACZ,aAAa,EAAE,aAAa;QAC5B,aAAa,EAAE,sBAAsB;QACrC,SAAS,EAAE,WAAW;QACtB,QAAQ,EAAE,eAAe;QACzB,iBAAiB,EAAE,2BAA2B;KAC/C;IACD,IAAI,EAAE,IAAI;CACX,CAAC"}

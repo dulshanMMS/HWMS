@@ -3,18 +3,19 @@ import Team from "../models/Team.js";
 
 const router = express.Router();
 
-// Existing routes (from your backend)
-router.get("/:teamId", async (req, res) => {
+// GET team info by teamId - FIXED: Added /teams prefix
+router.get("/teams/:teamId", async (req, res) => {
   try {
     const team = await Team.findOne({ teamId: req.params.teamId });
     if (!team) return res.status(404).json({ error: "Team not found" });
     res.json(team);
   } catch (err) {
+    console.error("Error fetching team:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// New route to check if a member exists
+// Existing route for checking members
 router.post("/checkMember", async (req, res) => {
   const { memberId } = req.body;
   try {

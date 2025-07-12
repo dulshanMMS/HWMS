@@ -35,17 +35,8 @@ router.get("/users/:username", async (req, res) => {
   }
 });
 
-// GET team info by teamId
-router.get("/teams/:teamId", async (req, res) => {
-  try {
-    const team = await Team.findOne({ teamId: req.params.teamId });
-    if (!team) return res.status(404).json({ error: "Team not found" });
-    res.json(team);
-  } catch (err) {
-    console.error("Error fetching team:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
+// REMOVED: Duplicate team route - now handled in teamRoutes.js
+// This was causing the conflict
 
 // GET team members by teamId
 router.get("/users/team/:teamId", async (req, res) => {
