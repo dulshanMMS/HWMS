@@ -2,19 +2,34 @@ import Notification from '../models/Notification.js';
 import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
-import sendEmail from './emailService.js'; // ✅ FIXED: Import sendEmail
+import sendEmail from './emailService.js';
 
 // Fetch all notifications for a user
 export async function getAllNotifications(userId) {
-  return Notification.find({ recipient: userId, deleted: false }).sort({ createdAt: -1 });
+  return Notification.find({ recipient: userId, deleted: false })
+    .sort({ createdAt: -1 })
+    .populate('bookingId', 'type details date');
 }
 
-// Fetch all admin notifications
-export async function getAdminNotifications() {
-  return Notification.find({ type: 'important', deleted: false })
+// Fetch all admin notifications with pagination
+export async function getAdminNotifications(page = 1, limit = 10) {
+  const skip = (page - 1) * limit;
+  const total = await Notification.countDocuments({ type: 'important', deleted: false });
+  
+  const notifications = await Notification.find({ type: 'important', deleted: false })
     .sort({ createdAt: -1 })
-    .populate('recipient', 'firstName lastName email')
+    .skip(skip)
+    .limit(parseInt(limit))
+    .populate('recipient', 'firstName lastName email username')
     .populate('bookingId', 'type details date');
+    
+  return {
+    notifications,
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit),
+    totalPages: Math.ceil(total / limit)
+  };
 }
 
 // Unread count
@@ -49,17 +64,28 @@ export async function deleteNotification(notificationId, userId) {
   return notification.save();
 }
 
-// Paginated fetch
-export async function getNotifications(page, limit) {
-  const total = await Notification.countDocuments();
-  const notifications = await Notification.find()
+// Paginated fetch for all notifications
+export async function getNotifications(page = 1, limit = 10) {
+  const skip = (page - 1) * limit;
+  const total = await Notification.countDocuments({ deleted: false });
+  
+  const notifications = await Notification.find({ deleted: false })
     .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(parseInt(limit));
-  return { notifications, total };
+    .skip(skip)
+    .limit(parseInt(limit))
+    .populate('recipient', 'firstName lastName email username')
+    .populate('bookingId', 'type details date');
+    
+  return {
+    notifications,
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit),
+    totalPages: Math.ceil(total / limit)
+  };
 }
 
-// Manual notification creation
+// Manual notification creation for admins
 export async function sendNotification({ recipient, title, message, type, emailSubject }) {
   const notification = new Notification({ recipient, title, message, type });
   await notification.save();
@@ -87,32 +113,40 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
     const saved = await notification.save(); // ✅ triggers all schema defaults
     savedNotifications.push(saved);
 
-    // Optional: Send email
-    const user = await User.findById(recipient);
-    if (user?.email && emailSubject) {
-      await sendEmail({
-        to: user.email,
-        subject: emailSubject,
-        message
-      });
+  if (emailSubject) {
+  const users = await User.find({ _id: { $in: recipients } });
+  for (const user of users) {
+      if (user?.email) {
+      await sendEmail({ to: user.email, subject: emailSubject, message });
+      }
     }
   }
 
   console.log(`✅ Saved ${savedNotifications.length} notifications`);
   return savedNotifications;
 }
+}
+// Main function to create booking notifications
+export async function createBookingNotifications(bookingData) {
+  const { userId, slotNumber, floor, type, date, entryTime, exitTime, bookingId } = bookingData;
+  
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
 
-// Booking Notification to User + Admins
-export async function sendBookingNotification({ booking, user, type }) {
+    // Create notification for the user
   const userNotification = new Notification({
-    recipient: user._id,
-    title: type === 'seat_booking' ? 'Seat Booking Confirmed' : 'Parking Booking Confirmed',
-    message: `Your ${type === 'seat_booking' ? 'seat' : 'parking'} booking has been confirmed.`,
-    type,
-    bookingId: booking._id
+      recipient: userId,
+      title: `${type === 'seat' ? 'Seat' : 'Parking'} Booking Confirmed`,
+      message: `Your ${type === 'seat' ? 'seat' : 'parking slot'} ${slotNumber} on Floor ${floor} has been booked for ${date} from ${entryTime} to ${exitTime}`,
+      type: type === 'seat' ? 'seat_booking' : 'parking_booking',
+      bookingId: bookingId
   });
   await userNotification.save();
 
+    // Send email to user
   if (user.email) {
     await sendEmail({
       to: user.email,
@@ -121,124 +155,179 @@ export async function sendBookingNotification({ booking, user, type }) {
     });
   }
 
+    // Create notifications for all admins
   const admins = await User.find({ role: 'admin' });
+    const adminNotifications = [];
+    
   for (const admin of admins) {
     const adminNotification = new Notification({
       recipient: admin._id,
-      title: `New ${type === 'seat_booking' ? 'Seat' : 'Parking'} Booking`,
-      message: `${user.firstName} ${user.lastName} has made a ${type === 'seat_booking' ? 'seat' : 'parking'} booking.`,
+        title: `New Booking`,
+        message: `${user.firstName} ${user.lastName} (${user.username}) has booked ${type === 'seat' ? 'seat' : 'parking slot'} ${slotNumber} on Floor ${floor} for ${date} from ${entryTime} to ${exitTime}`,
       type: 'important',
-      bookingId: booking._id
-    });
-    await adminNotification.save();
-  }
+        bookingId: bookingId
+      });
+      await adminNotification.save();
+      adminNotifications.push(adminNotification);
 
-  return [userNotification, ...admins.map(admin => admin._id)];
+      // Send email to admin
+      if (admin.email) {
+        await sendEmail({
+          to: admin.email,
+          subject: adminNotification.title,
+          message: adminNotification.message
+        });
+      }
+    }
+
+    console.log(`Notifications created: 1 user notification, ${adminNotifications.length} admin notifications`);
+    return { userNotification, adminNotifications };
+    
+  } catch (error) {
+    console.error('Error creating booking notifications:', error);
+    throw error;
+  }
 }
 
-// Slot Booking Change Stream Listeners
-export function listenForChanges() {
-  const parkingStream = ParkingSlot.watch();
+// Function to handle cancellation notifications
+export async function createCancellationNotifications(cancellationData) {
+  const { userId, slotNumber, floor, type, date, bookingId } = cancellationData;
+  
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Create notification for the user
+    const userNotification = new Notification({
+      recipient: userId,
+      title: `${type === 'seat' ? 'Seat' : 'Parking'} Booking Cancelled`,
+      message: `Your ${type === 'seat' ? 'seat' : 'parking slot'} ${slotNumber} on Floor ${floor} booking for ${date} has been cancelled`,
+      type: type === 'seat' ? 'seat_cancellation' : 'parking_cancellation',
+      bookingId: bookingId
+    });
+    await userNotification.save();
+
+    // Send email to user
+    if (user.email) {
+      await sendEmail({
+        to: user.email,
+        subject: userNotification.title,
+        message: userNotification.message
+      });
+    }
+
+    // Create notifications for all admins
+    const admins = await User.find({ role: 'admin' });
+    const adminNotifications = [];
+    
+    for (const admin of admins) {
+      const adminNotification = new Notification({
+        recipient: admin._id,
+        title: `Booking Cancelled`,
+        message: `${user.firstName} ${user.lastName} (${user.username}) has cancelled ${type === 'seat' ? 'seat' : 'parking slot'} ${slotNumber} on Floor ${floor} for ${date}`,
+        type: 'important',
+        bookingId: bookingId
+    });
+    await adminNotification.save();
+      adminNotifications.push(adminNotification);
+
+      // Send email to admin
+      if (admin.email) {
+        await sendEmail({
+          to: admin.email,
+          subject: adminNotification.title,
+          message: adminNotification.message
+        });
+      }
+    }
+
+    return { userNotification, adminNotifications };
+    
+  } catch (error) {
+    console.error('Error creating cancellation notifications:', error);
+    throw error;
+  }
+}
+
+// Change stream listeners for real-time notifications
+export function listenForBookingChanges() {
   const seatingStream = SeatingSlot.watch();
 
   seatingStream.on('change', async (change) => {
-    console.log('SeatingSlot change detected:', change);
-    if (change.operationType === 'insert' && change.fullDocument.bookings && change.fullDocument.bookings.length > 0) {
-      const { userName, slotNumber, floor, date, entryTime, exitTime } = change.fullDocument.bookings[0];
-      const user = await User.findOne({ username: userName });
+    console.log('SeatingSlot change detected:', change.operationType);
+
+    // Detect when a booking is added (update to bookings array)
+    if (change.operationType === 'update' && change.updateDescription.updatedFields && change.updateDescription.updatedFields['bookings']) {
+      // Get the slot document after the update
+      const slotId = change.documentKey._id;
+      const slot = await SeatingSlot.findById(slotId);
+      if (slot && slot.bookings.length > 0) {
+        // Get the latest booking (the one just added)
+        const latestBooking = slot.bookings[slot.bookings.length - 1];
+        const user = await User.findOne({ username: latestBooking.userName });
       if (user) {
-        console.log('User found for seating booking:', user);
-        await createNotification(user._id, slotNumber, floor, 'seat', date, entryTime, exitTime);
-      } else {
-        console.log('User not found for seating booking with username:', userName);
+          await createBookingNotifications({
+            userId: user._id,
+            slotNumber: slot.slotNumber,
+            floor: slot.floor,
+            type: 'seat',
+            date: latestBooking.date,
+            entryTime: latestBooking.entryTime,
+            exitTime: latestBooking.exitTime,
+            bookingId: latestBooking._id // optional, if you have booking IDs
+          });
+        }
       }
     }
   });
-
-  parkingStream.on('change', async (change) => {
-    console.log('ParkingSlot change detected:', change);
-    if (change.operationType === 'insert' && change.fullDocument.bookings && change.fullDocument.bookings.length > 0) {
-      const { userName, slotNumber, floor, date, entryTime, exitTime } = change.fullDocument.bookings[0];
-      const user = await User.findOne({ username: userName });
-      if (user) {
-        console.log('User found for parking booking:', user);
-        await createNotification(user._id, slotNumber, floor, 'parking', date, entryTime, exitTime);
-      } else {
-        console.log('User not found for parking booking with username:', userName);
-      }
-    }
-  });
-}
-
-// Helper for real-time notification creation
-export async function createNotification(userId, slotNumber, floor, type, date, entryTime, exitTime) {
-  const user = await User.findById(userId);
-  const userName = user?.username || 'Unknown User';
-  const admins = await User.find({ role: 'admin' });
-
-  // Create notification for the user
-  const userNotification = new Notification({
-    title: 'Booking Confirmation',
-    message: `You booked ${type === 'seat' ? 'Seat' : 'Parking Slot'} ${slotNumber} on Floor ${floor} on ${date} from ${entryTime} to ${exitTime}`,
-    type: type === 'seat' ? 'seat_booking' : 'parking_booking',
-    recipient: userId,
-  });
-  await userNotification.save();
-
-  // Create a general notification for each admin
-  const adminMessage = `${userName} has booked a ${type === 'seat' ? 'Seat' : 'Parking Slot'} on Floor ${floor} on ${date}.`;
-  for (const admin of admins) {
-    const adminNotification = new Notification({
-      title: 'New Booking',
-      message: adminMessage,
-      type: 'important',
-      recipient: admin._id,
-    });
-    await adminNotification.save();
-  }
 }
 
 // Notification Preferences
 export async function getNotificationPreferences(userId) {
   const user = await User.findById(userId).select('notificationPreferences');
-  return user.notificationPreferences;
+  return user?.notificationPreferences || {
+    email: true,
+    push: true,
+    bookingConfirmation: true,
+    cancellationAlert: true,
+    adminUpdates: true
+  };
 }
 
 export async function updateNotificationPreferences(userId, preferences) {
-  const user = await User.findByIdAndUpdate(userId, { notificationPreferences: preferences }, { new: true })
-    .select('notificationPreferences');
+  const user = await User.findByIdAndUpdate(
+    userId, 
+    { notificationPreferences: preferences }, 
+    { new: true }
+  ).select('notificationPreferences');
   return user.notificationPreferences;
 }
 
-export async function generateNotificationsForExistingBookings() {
-  // Fetch all seating bookings
-  const seatingSlots = await SeatingSlot.find({ 'bookings.0': { $exists: true } });
-  for (const slot of seatingSlots) {
-    for (const booking of slot.bookings) {
-      const { userName, slotNumber, floor, date, entryTime, exitTime } = booking;
-      const user = await User.findOne({ username: userName });
-      if (user) {
-        console.log('Generating notification for existing seating booking:', booking);
-        await createNotification(user._id, slotNumber, floor, 'seat', date, entryTime, exitTime);
-      }
-    }
-  }
-
-  // Fetch all parking bookings
-  const parkingSlots = await ParkingSlot.find({ 'bookings.0': { $exists: true } });
-  for (const slot of parkingSlots) {
-    for (const booking of slot.bookings) {
-      const { userName, slotNumber, floor, date, entryTime, exitTime } = booking;
-      const user = await User.findOne({ username: userName });
-      if (user) {
-        console.log('Generating notification for existing parking booking:', booking);
-        await createNotification(user._id, slotNumber, floor, 'parking', date, entryTime, exitTime);
-      }
-    }
-  }
+// Fetch notifications for a specific admin
+export async function getNotificationsForAdmin(adminId, page = 1, limit = 10) {
+  const skip = (page - 1) * limit;
+  const total = await Notification.countDocuments({ recipient: adminId, deleted: false });
+  
+  const notifications = await Notification.find({ recipient: adminId, deleted: false })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit))
+    .populate('bookingId', 'type details date');
+    
+  return {
+    notifications,
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit),
+    totalPages: Math.ceil(total / limit)
+  };
 }
 
-// Call this function once to generate notifications for existing bookings
-//generateNotificationsForExistingBookings();
-
-listenForChanges();
+// Initialize the notification system
+export function initializeNotificationSystem() {
+  console.log('Initializing notification system...');
+  listenForBookingChanges();
+  console.log('Notification system initialized successfully');
+}
