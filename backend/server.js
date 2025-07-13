@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import bookingRoutes from "./routes/seatBookings.js";
 import teamRoutes from "./routes/teamRoutes.js";
 import authRoutes from './routes/auth.js';
-
+import seatHistoryRoutes from "./routes/seatHistoryRoutes.js";
 import parkingRoutes from "./routes/parkingRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
@@ -53,6 +53,7 @@ app.use(express.json());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/parking", parkingRoutes);
+app.use("/api/seathistory", seatHistoryRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/history", parkinghistoryRoutes);
 app.use("/api/admin/parking", parkingAdminRoutes);
