@@ -2,41 +2,47 @@ import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
+import { isSameDay } from 'date-fns';
 
 // 1. TOTAL TODAY BOOKINGS..................
 export const getTodayBookingCount = async (req, res) => {
   try {
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Normalize
 
-    // Count bookings in parkingSlots
+    // --- PARKING BOOKINGS ---
     const parkingSlots = await ParkingSlot.find({});
     const parkingCount = parkingSlots.reduce((sum, slot) => {
       const todayBookings = slot.bookings.filter(b => {
         const bDate = new Date(b.date);
-        return bDate >= startOfDay && bDate <= endOfDay;
+        bDate.setHours(0, 0, 0, 0);
+        return bDate.getTime() === now.getTime();
       });
       return sum + todayBookings.length;
     }, 0);
 
-    // Count seatingSlot entries where the root-level date is today
-    const seatingCount = await SeatingSlot.countDocuments({
-      date: {
-        $gte: startOfDay,
-        $lte: endOfDay
+    // --- SEATING BOOKINGS ---
+    const seatingSlots = await SeatingSlot.find({});
+    let seatingCount = 0;
+
+    for (const user of seatingSlots) {
+      const bookings = user.bookings || [];
+      for (const booking of bookings) {
+        const bookingDate = new Date(booking.date);
+        bookingDate.setHours(0, 0, 0, 0);
+        if (bookingDate.getTime() === now.getTime()) {
+          seatingCount += 1;
+        }
       }
-    });
+    }
 
     const total = parkingCount + seatingCount;
-
     res.json({ success: true, count: total });
   } catch (err) {
-    console.error("Error in getTodayBookingCount:", err);
+    console.error("❌ Error in getTodayBookingCount:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
-
 
 // 2. EVENT LIST FOR A SPECIFIC DATE............................
 export const getBookingsByDate = async (req, res) => {
@@ -73,68 +79,93 @@ export const getBookingsByDate = async (req, res) => {
 // 3. TEAM-WISE TODAY BOOKING COUNTS...............................
 export const getTeamBookingsToday = async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const [parkingSlots, seatingSlots] = await Promise.all([
-      ParkingSlot.find({}),
-      SeatingSlot.find({})
-    ]);
-
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const teamBookingMap = {};
 
-    const processBookings = async (slots) => {
-      for (const slot of slots) {
-        for (const booking of slot.bookings) {
-          if (booking.date === today) {
-            const user = await User.findOne({ userName: booking.userName });
-            const teamId = user?.teamId;
-
-            if (!teamId) continue;
-
-            if (!teamBookingMap[teamId]) {
-              teamBookingMap[teamId] = { count: 0, name: "Unknown", color: "#cccccc" };
-            }
-
-            teamBookingMap[teamId].count += 1;
-          }
-        }
-      }
-    };
-
-    await Promise.all([
-      processBookings(parkingSlots),
-      processBookings(seatingSlots)
+    const [parkingSlots, seatingSlots, users, teams] = await Promise.all([
+      ParkingSlot.find({}),
+      SeatingSlot.find({}),
+      User.find({}),
+      Team.find({})
     ]);
 
-    await Promise.all(Object.keys(teamBookingMap).map(async (teamId) => {
-      const team = await Team.findOne({ teamId });
-      if (team) {
-        teamBookingMap[teamId].name = team.teamName;
-        teamBookingMap[teamId].color = team.color;
+    // 🔄 Build user → teamId map
+    const userMap = {};
+    users.forEach(user => {
+      userMap[user.username] = user.teamId;
+    });
+
+    // 🔄 Build teamId → name/color map
+    const teamMap = {};
+    teams.forEach(team => {
+      teamMap[team.teamId] = {
+        name: team.teamName,
+        color: team.color || '#ccc'
+      };
+    });
+
+    // 🚗 Count PARKING bookings per team
+    for (const slot of parkingSlots) {
+      for (const booking of slot.bookings || []) {
+        const bookingDate = new Date(booking.date);
+        bookingDate.setHours(0, 0, 0, 0);
+        if (bookingDate.getTime() !== now.getTime()) continue;
+
+        const teamId = userMap[booking.userName];
+        if (!teamId) continue;
+
+        if (!teamBookingMap[teamId]) {
+          const team = teamMap[teamId] || { name: "Unknown", color: "#ccc" };
+          teamBookingMap[teamId] = { count: 0, name: team.name, color: team.color };
+        }
+
+        teamBookingMap[teamId].count += 1;
       }
-    }));
+    }
 
-    const teams = Object.values(teamBookingMap)
-      .map(({ name, count, color }) => ({ name, count, color }))
-      .sort((a, b) => b.count - a.count);
+    // 💺 Count SEATING bookings per team
+    for (const member of seatingSlots) {
+      const bookings = member.bookings || [];
 
-    res.json({ success: true, teams });
+      for (const booking of bookings) {
+        const bookingDate = new Date(booking.date);
+        bookingDate.setHours(0, 0, 0, 0);
+        if (bookingDate.getTime() !== now.getTime()) continue;
+
+        const teamId = member.teamId;
+        if (!teamId) continue;
+
+        if (!teamBookingMap[teamId]) {
+          const team = teamMap[teamId] || { name: "Unknown", color: "#ccc" };
+          teamBookingMap[teamId] = { count: 0, name: team.name, color: team.color };
+        }
+
+        teamBookingMap[teamId].count += 1;
+      }
+    }
+
+    const teamsResult = Object.values(teamBookingMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    res.json({ success: true, teams: teamsResult });
   } catch (err) {
-    console.error("Error in getTeamBookingsToday:", err);
+    console.error("❌ Error in getTeamBookingsToday:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 
 // 4. FLOOR-WISE BOOKING COUNTS....
 export const getFloorBookingCount = async (req, res) => {
   try {
     const parkingSlots = await ParkingSlot.find({});
-    const seatingSlots = await SeatingSlot.find({});
+    const seatingSlots = await SeatingSlot.find({}); // One doc per user
 
     const parkingMap = {};
     const seatingMap = {};
 
-    // Count parking bookings per floor
+    // Count all bookings in parking slots (grouped by floor)
     parkingSlots.forEach(slot => {
       const floor = slot.floor?.toString();
       if (!floor) return;
@@ -143,12 +174,14 @@ export const getFloorBookingCount = async (req, res) => {
       parkingMap[floor] = (parkingMap[floor] || 0) + count;
     });
 
-    // Count seating *documents* per floor
-    seatingSlots.forEach(slot => {
-      const floor = slot.floor?.toString();
-      if (!floor) return;
-
-      seatingMap[floor] = (seatingMap[floor] || 0) + 1;
+    // Count all bookings in seating slots (nested array in each user doc)
+    seatingSlots.forEach(member => {
+      const bookings = member.bookings || [];
+      bookings.forEach(booking => {
+        const floor = booking.floor?.toString();
+        if (!floor) return;
+        seatingMap[floor] = (seatingMap[floor] || 0) + 1;
+      });
     });
 
     const parking = Object.entries(parkingMap).map(([floor, count]) => ({ floor, count }));
@@ -156,7 +189,8 @@ export const getFloorBookingCount = async (req, res) => {
 
     res.json({ success: true, parking, seating });
   } catch (err) {
-    console.error("Error in getFloorBookingCount:", err);
+    console.error("❌ Error in getFloorBookingCount:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
