@@ -1,4 +1,4 @@
-// controllers/seatBookingController.js - Member-wise booking controller
+// controllers/seatBookingController.js - Updated with fixes
 import User from "../models/User.js";
 import { 
   addBookingToMember,
@@ -92,7 +92,7 @@ export const getAllBookingsController = async (req, res) => {
   }
 };
 
-// Member booking controller
+// FIXED: Member booking controller
 export const bookSeatForMember = async (req, res) => {
   const { userName, seatId } = req.params;
 
@@ -105,7 +105,7 @@ export const bookSeatForMember = async (req, res) => {
     const { roomId, areaId, teamName, floor, date, entryTime, exitTime, memberName, teamColor, color } = req.body;
     const actualAreaId = areaId || roomId; // Support both field names
     const actualTeamColor = teamColor || color;
-    const actualUserName = memberName || userName;
+    // REMOVED: const actualUserName = memberName || userName; (This was causing confusion)
     
     // Basic validation
     if (!actualAreaId || !teamName || !floor || !date || !entryTime || !exitTime) {
@@ -139,7 +139,6 @@ export const bookSeatForMember = async (req, res) => {
       date, 
       entryTime, 
       exitTime,
-      actualUserName,
       actualTeamColor 
     });
 
@@ -172,12 +171,12 @@ export const bookSeatForMember = async (req, res) => {
       seatId: seatId
     };
 
-    // Add booking to member's record
-    const result = await addBookingToMember(actualUserName, teamData, bookingData);
+    // FIXED: Use userName directly from route params
+    const result = await addBookingToMember(userName, teamData, bookingData);
     
     console.log("✅ Booking saved successfully!");
     console.log("📊 Booking details:", {
-      userName: actualUserName,
+      userName: userName, // Use userName from route
       bookingId: result.bookingId,
       totalBookings: result.totalBookings,
       teamName: teamData.teamName
@@ -189,7 +188,7 @@ export const bookSeatForMember = async (req, res) => {
       success: true,
       booking: {
         bookingId: result.bookingId,
-        userName: actualUserName,
+        userName: userName, // Use userName from route
         seatId: seatId,
         date: date,
         timeSlot: `${entryTime} - ${exitTime}`,
@@ -349,7 +348,7 @@ export const bookSeatForTeamMember = async (req, res) => {
   }
 };
 
-// Unbook seat controller
+// FIXED: Unbook seat controller
 export const unbookSeat = async (req, res) => {
   const { roomId, seatId, floor, date } = req.params;
 
@@ -366,7 +365,6 @@ export const unbookSeat = async (req, res) => {
     }
 
     // For unbooking, we need to find the booking first
-    // Since we don't have entryTime/exitTime in the delete route, we need to find by other criteria
     const foundBooking = await findBookingForUnbooking(seatId, floor, date);
     
     if (!foundBooking) {
@@ -381,16 +379,19 @@ export const unbookSeat = async (req, res) => {
 
     const { memberRecord, booking } = foundBooking;
     
+    // FIXED: Handle both userName and memberName fields
+    const memberName = memberRecord.userName || memberRecord.memberName;
+    
     console.log("🎯 Found booking:", {
-      userName: memberRecord.userName,
+      userName: memberName, // Use mapped field
       bookingId: booking.bookingId,
       seatId: booking.seatId,
       timeSlot: `${booking.entryTime} - ${booking.exitTime}`
     });
 
-    // Remove booking from member's record
+    // FIXED: Remove booking using mapped field
     const result = await removeBookingFromMember(
-      memberRecord.userName,
+      memberName, // Use mapped field
       memberRecord.teamId,
       booking.seatId,
       booking.date,
@@ -406,7 +407,7 @@ export const unbookSeat = async (req, res) => {
       message: `Seat ${seatId} unbooked successfully!`, 
       success: true,
       details: {
-        userName: memberRecord.userName,
+        userName: memberName, // Use mapped field
         removedBookingId: booking.bookingId,
         remainingBookings: result.remainingBookings,
         timeSlot: `${booking.entryTime} - ${booking.exitTime}`
