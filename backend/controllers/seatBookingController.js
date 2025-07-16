@@ -1,4 +1,4 @@
-// controllers/seatBookingController.js - Updated with fixes
+// controllers/seatBookingController.js - COMPLETE FIXED VERSION
 import User from "../models/User.js";
 import { 
   addBookingToMember,
@@ -9,6 +9,27 @@ import {
   getMemberBookingStats,
   findBookingForUnbooking
 } from "../services/seatBookingService.js";
+
+// Color conversion helper function
+const convertToHexColor = (teamColor) => {
+  if (!teamColor) return '#22c55e';
+  if (teamColor.startsWith('#')) return teamColor;
+  
+  const colorMap = {
+    'bg-red-500': '#ef4444',
+    'bg-green-500': '#22c55e',
+    'bg-blue-500': '#3b82f6',
+    'bg-yellow-500': '#eab308',
+    'bg-purple-500': '#a855f7',
+    'bg-pink-500': '#ec4899',
+    'bg-indigo-500': '#6366f1',
+    'bg-orange-500': '#f97316',
+    'bg-teal-500': '#14b8a6',
+    'bg-cyan-500': '#06b6d4'
+  };
+  
+  return colorMap[teamColor] || '#22c55e';
+};
 
 // Controller functions for user management
 export const getUserByUsername = async (req, res) => {
@@ -92,6 +113,32 @@ export const getAllBookingsController = async (req, res) => {
   }
 };
 
+// Add this to your backend controller
+export const getAllBookingsForDate = async (req, res) => {
+  try {
+    const { date, floor } = req.query;
+
+    // Get ALL bookings for the date/floor
+    const result = await getFilteredBookings(date, floor);
+
+    // Transform chair data to use `username` and `color`
+    const transformedChairs = {};
+    for (const [chairId, booking] of Object.entries(result.chairs)) {
+      transformedChairs[chairId] = {
+        username: booking.userName,
+        color: booking.teamColor,
+        timeSlot: booking.timeSlot,
+      };
+    }
+
+    res.json({ chairs: transformedChairs });
+  } catch (error) {
+    console.error('Error getting all bookings:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 // FIXED: Member booking controller
 export const bookSeatForMember = async (req, res) => {
   const { userName, seatId } = req.params;
@@ -105,7 +152,6 @@ export const bookSeatForMember = async (req, res) => {
     const { roomId, areaId, teamName, floor, date, entryTime, exitTime, memberName, teamColor, color } = req.body;
     const actualAreaId = areaId || roomId; // Support both field names
     const actualTeamColor = teamColor || color;
-    // REMOVED: const actualUserName = memberName || userName; (This was causing confusion)
     
     // Basic validation
     if (!actualAreaId || !teamName || !floor || !date || !entryTime || !exitTime) {
@@ -142,25 +188,6 @@ export const bookSeatForMember = async (req, res) => {
       actualTeamColor 
     });
 
-    // Try to verify user permissions, but continue if it fails
-    let teamData;
-    try {
-      const permissions = await verifyUserPermissions(userName, teamName);
-      teamData = {
-        teamId: permissions.team.teamId,
-        teamName: permissions.team.teamName,
-        teamColor: actualTeamColor || '#FF5733' // Default color if not provided
-      };
-    } catch (permissionError) {
-      console.log("⚠️ Permission check failed, creating mock team data:", permissionError.message);
-      // Create mock team data for backward compatibility
-      teamData = {
-        teamId: teamName, // Use team name as ID if team not found
-        teamName: teamName,
-        teamColor: actualTeamColor || '#FF5733'
-      };
-    }
-
     // Prepare booking data
     const bookingData = {
       areaId: actualAreaId,
@@ -171,29 +198,37 @@ export const bookSeatForMember = async (req, res) => {
       seatId: seatId
     };
 
-    // FIXED: Use userName directly from route params
-    const result = await addBookingToMember(userName, teamData, bookingData);
+    console.log("📋 bookingData being passed to addBookingToMember:", bookingData);
+
+    // FIXED: Use only userName and bookingData (removed teamData parameter)
+    const result = await addBookingToMember(userName, bookingData);
     
     console.log("✅ Booking saved successfully!");
     console.log("📊 Booking details:", {
-      userName: userName, // Use userName from route
+      userName: userName,
       bookingId: result.bookingId,
-      totalBookings: result.totalBookings,
-      teamName: teamData.teamName
+      totalBookings: result.totalBookings
     });
     console.log("🔍 === MEMBER BOOKING DEBUG END ===");
+    
+    // Get the updated member record with team info for frontend
+    const updatedRecord = result.memberRecord;
+    const hexColor = convertToHexColor(updatedRecord.teamColor);
     
     res.json({ 
       message: "Chair booked successfully!", 
       success: true,
       booking: {
         bookingId: result.bookingId,
-        userName: userName, // Use userName from route
+        userName: userName,
+        username: userName,  // Provide both for compatibility
         seatId: seatId,
         date: date,
         timeSlot: `${entryTime} - ${exitTime}`,
         totalBookings: result.totalBookings,
-        teamName: teamData.teamName
+        teamColor: hexColor,
+        teamName: updatedRecord.teamName,
+        teamId: updatedRecord.teamId
       }
     });
   } catch (error) {
@@ -219,7 +254,7 @@ export const bookSeatForMember = async (req, res) => {
   }
 };
 
-// Leader booking for team member
+// FIXED: Leader booking for team member
 export const bookSeatForTeamMember = async (req, res) => {
   const { userName, seatId, teamMemberName } = req.params;
 
@@ -267,26 +302,15 @@ export const bookSeatForTeamMember = async (req, res) => {
       exitTime 
     });
 
-    // Verify leader permissions
-    let teamData;
+    // Verify leader permissions (optional - for security)
     try {
-      const permissions = await verifyUserPermissions(userName, teamName, teamMemberName);
-      teamData = {
-        teamId: permissions.team.teamId,
-        teamName: permissions.team.teamName,
-        teamColor: actualTeamColor || '#FF5733'
-      };
+      await verifyUserPermissions(userName, teamName, teamMemberName);
+      console.log("✅ Leader permissions verified");
     } catch (permissionError) {
       if (permissionError.message.includes('Only team leaders')) {
         return res.status(403).json({ message: permissionError.message });
       }
-      
-      console.log("⚠️ Permission check failed, creating mock team data:", permissionError.message);
-      teamData = {
-        teamId: teamName,
-        teamName: teamName,
-        teamColor: actualTeamColor || '#FF5733'
-      };
+      console.log("⚠️ Permission check failed but continuing:", permissionError.message);
     }
 
     // Prepare booking data
@@ -299,8 +323,10 @@ export const bookSeatForTeamMember = async (req, res) => {
       seatId: seatId
     };
 
-    // Add booking to team member's record
-    const result = await addBookingToMember(teamMemberName, teamData, bookingData);
+    console.log("📋 bookingData being passed to addBookingToMember:", bookingData);
+
+    // FIXED: Use only teamMemberName and bookingData (removed teamData parameter)
+    const result = await addBookingToMember(teamMemberName, bookingData);
     
     console.log("✅ Leader booking saved successfully!");
     console.log("📊 Leader booking details:", {
@@ -311,18 +337,25 @@ export const bookSeatForTeamMember = async (req, res) => {
     });
     console.log("🔍 === LEADER BOOKING DEBUG END ===");
     
+    // Get the updated member record with team info for frontend
+    const updatedRecord = result.memberRecord;
+    const hexColor = convertToHexColor(updatedRecord.teamColor);
+    
     res.json({ 
       message: `Seat ${seatId} booked for ${teamMemberName} successfully!`, 
       success: true,
       booking: {
         bookingId: result.bookingId,
         userName: teamMemberName,
+        username: teamMemberName,  // Provide both for compatibility
         bookedBy: userName,
         seatId: seatId,
         date: date,
         timeSlot: `${entryTime} - ${exitTime}`,
         totalBookings: result.totalBookings,
-        teamName: teamData.teamName
+        teamColor: hexColor,
+        teamName: updatedRecord.teamName,
+        teamId: updatedRecord.teamId
       }
     });
   } catch (error) {
@@ -379,19 +412,19 @@ export const unbookSeat = async (req, res) => {
 
     const { memberRecord, booking } = foundBooking;
     
-    // FIXED: Handle both userName and memberName fields
-    const memberName = memberRecord.userName || memberRecord.memberName;
+    // Use consistent username field
+    const memberName = memberRecord.username;
     
     console.log("🎯 Found booking:", {
-      userName: memberName, // Use mapped field
+      userName: memberName,
       bookingId: booking.bookingId,
       seatId: booking.seatId,
       timeSlot: `${booking.entryTime} - ${booking.exitTime}`
     });
 
-    // FIXED: Remove booking using mapped field
+    // Remove booking
     const result = await removeBookingFromMember(
-      memberName, // Use mapped field
+      memberName,
       memberRecord.teamId,
       booking.seatId,
       booking.date,
@@ -407,7 +440,7 @@ export const unbookSeat = async (req, res) => {
       message: `Seat ${seatId} unbooked successfully!`, 
       success: true,
       details: {
-        userName: memberName, // Use mapped field
+        userName: memberName,
         removedBookingId: booking.bookingId,
         remainingBookings: result.remainingBookings,
         timeSlot: `${booking.entryTime} - ${booking.exitTime}`

@@ -1,4 +1,4 @@
-// services/seatBookingService.js - UPDATED to work with userName model and fix validation
+// services/seatBookingService.js - FIXED to work with User and Team models consistently
 import SeatingSlots from "../models/SeatingSlots.js";
 import Team from "../models/Team.js";
 import User from "../models/User.js";
@@ -8,13 +8,54 @@ import {
   parseDateSafely 
 } from "./seatValidationService.js";
 
+// ADDED: Missing convertToHexColor function
+const convertToHexColor = (color) => {
+  // If it's already a hex color, return as is
+  if (color && color.startsWith('#')) {
+    return color;
+  }
+  
+  // If it's an RGB color, convert to hex
+  if (color && color.startsWith('rgb')) {
+    const rgbMatch = color.match(/\d+/g);
+    if (rgbMatch) {
+      const [r, g, b] = rgbMatch.map(Number);
+      return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    }
+  }
+  
+  // For named colors, convert to hex
+  const namedColors = {
+    'red': '#FF0000',
+    'blue': '#0000FF',
+    'green': '#00FF00',
+    'yellow': '#FFFF00',
+    'purple': '#800080',
+    'orange': '#FFA500',
+    'pink': '#FFC0CB',
+    'cyan': '#00FFFF',
+    'magenta': '#FF00FF',
+    'lime': '#00FF00',
+    'indigo': '#4B0082',
+    'violet': '#8A2BE2',
+    'brown': '#A52A2A',
+    'gray': '#808080',
+    'grey': '#808080',
+    'black': '#000000',
+    'white': '#FFFFFF'
+  };
+  
+  // Return hex color if found, otherwise return original color or default
+  return namedColors[color?.toLowerCase()] || color || '#000000';
+};
+
 // Utility functions moved from model
-export const generateBookingId = (userName) => {
-  return `${userName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+export const generateBookingId = (username) => {
+  return `${username}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 };
 
 export const addBookingToRecord = (memberRecord, bookingData) => {
-  const bookingId = generateBookingId(memberRecord.userName || memberRecord.memberName);
+  const bookingId = generateBookingId(memberRecord.username);
   
   memberRecord.bookings.push({
     bookingId,
@@ -43,11 +84,36 @@ export const removeBookingFromRecord = (memberRecord, bookingId) => {
 };
 
 export const removeBookingBySeat = (memberRecord, seatId, date, entryTime, exitTime) => {
-  const targetDate = new Date(date).toISOString().split('T')[0];
+  // SAFE DATE HANDLING
+  let targetDate;
+  try {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      throw new Error(`Invalid date provided: ${date}`);
+    }
+    targetDate = dateObj.toISOString().split('T')[0];
+  } catch (error) {
+    console.error(`❌ Date parsing error in removeBookingBySeat:`, error);
+    throw new Error(`Invalid date format: ${date}`);
+  }
+  
   const initialLength = memberRecord.bookings.length;
   
   memberRecord.bookings = memberRecord.bookings.filter(booking => {
-    const bookingDate = new Date(booking.date).toISOString().split('T')[0];
+    // SAFE BOOKING DATE HANDLING
+    let bookingDate;
+    try {
+      const bookingDateObj = new Date(booking.date);
+      if (isNaN(bookingDateObj.getTime())) {
+        console.warn(`⚠️ Invalid booking date found: ${booking.date}, keeping booking`);
+        return true; // Keep bookings with invalid dates
+      }
+      bookingDate = bookingDateObj.toISOString().split('T')[0];
+    } catch (error) {
+      console.warn(`⚠️ Error parsing booking date: ${booking.date}, keeping booking`);
+      return true; // Keep bookings with invalid dates
+    }
+    
     return !(
       booking.seatId === seatId &&
       bookingDate === targetDate &&
@@ -65,41 +131,67 @@ export const removeBookingBySeat = (memberRecord, seatId, date, entryTime, exitT
 
 export const getBookingsByDateRange = (memberRecord, startDate, endDate) => {
   return memberRecord.bookings.filter(booking => {
-    const bookingDate = new Date(booking.date);
-    return bookingDate >= startDate && bookingDate <= endDate;
+    // SAFE BOOKING DATE HANDLING
+    try {
+      const bookingDate = new Date(booking.date);
+      if (isNaN(bookingDate.getTime())) {
+        console.warn(`⚠️ Invalid booking date found: ${booking.date}, excluding from range`);
+        return false;
+      }
+      return bookingDate >= startDate && bookingDate <= endDate;
+    } catch (error) {
+      console.warn(`⚠️ Error parsing booking date: ${booking.date}, excluding from range`);
+      return false;
+    }
   });
 };
 
 export const getFutureBookings = (memberRecord) => {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  return memberRecord.bookings.filter(booking => new Date(booking.date) >= now);
+  return memberRecord.bookings.filter(booking => {
+    // SAFE BOOKING DATE HANDLING
+    try {
+      const bookingDate = new Date(booking.date);
+      if (isNaN(bookingDate.getTime())) {
+        console.warn(`⚠️ Invalid booking date found: ${booking.date}, excluding from future bookings`);
+        return false;
+      }
+      return bookingDate >= now;
+    } catch (error) {
+      console.warn(`⚠️ Error parsing booking date: ${booking.date}, excluding from future bookings`);
+      return false;
+    }
+  });
 };
 
-// UPDATED: Database query functions - handle userName model with memberName database compatibility
-export const findMemberCurrentRecord = async (userName) => {
-  // Try userName first (for new records), then memberName (for old records)
-  let record = await SeatingSlots.findOne({ userName, status: 'active' });
-  if (!record) {
-    record = await SeatingSlots.findOne({ memberName: userName, status: 'active' });
-  }
+// FIXED: Database query functions - use username consistently
+export const findMemberCurrentRecord = async (username) => {
+  const record = await SeatingSlots.findOne({ username, status: 'active' });
   return record;
 };
 
-export const findMemberByTeam = async (userName, teamId) => {
-  // Try userName first (for new records), then memberName (for old records)  
-  let record = await SeatingSlots.findOne({ userName, teamId, status: 'active' });
-  if (!record) {
-    record = await SeatingSlots.findOne({ memberName: userName, teamId, status: 'active' });
-  }
+export const findMemberByTeam = async (username, teamId) => {
+  const record = await SeatingSlots.findOne({ username, teamId, status: 'active' });
   return record;
 };
 
 export const findBookingsByDateAndFloor = async (date, floor) => {
-  const targetDate = new Date(date);
-  targetDate.setHours(0, 0, 0, 0);
-  const endDate = new Date(targetDate);
-  endDate.setHours(23, 59, 59, 999);
+  // SAFE DATE HANDLING
+  let targetDate, endDate;
+  try {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      throw new Error(`Invalid date provided: ${date}`);
+    }
+    targetDate = new Date(dateObj);
+    targetDate.setHours(0, 0, 0, 0);
+    endDate = new Date(targetDate);
+    endDate.setHours(23, 59, 59, 999);
+  } catch (error) {
+    console.error(`❌ Date parsing error in findBookingsByDateAndFloor:`, error);
+    throw new Error(`Invalid date format: ${date}`);
+  }
   
   return await SeatingSlots.find({
     status: 'active',
@@ -108,58 +200,83 @@ export const findBookingsByDateAndFloor = async (date, floor) => {
   });
 };
 
-// UPDATED: Get or create member's booking record - handle userName model
-export const getOrCreateMemberRecord = async (userName, teamData) => {
-  // First, try to find existing record for current team using userName
-  let memberRecord = await SeatingSlots.findOne({ userName, teamId: teamData.teamId, status: 'active' });
-  
-  // If not found with userName, try with memberName (for old records)
-  if (!memberRecord) {
-    memberRecord = await SeatingSlots.findOne({ memberName: userName, teamId: teamData.teamId, status: 'active' });
-  }
-  
-  if (!memberRecord) {
-    // Create new record using userName field (to match your model)
-    const recordData = {
-      userName: userName,  // Use userName field from your model
-      teamId: teamData.teamId,
-      teamName: teamData.teamName,
-      teamColor: teamData.teamColor,
-      bookings: [],
-      totalBookings: 0,
-      status: 'active'
-    };
+// FIXED: Get or create member's booking record - properly handle User and Team models
+export const getOrCreateMemberRecord = async (username) => {
+  try {
+    console.log(`🔍 Looking for member: ${username}`);
     
-    memberRecord = new SeatingSlots(recordData);
-    
-    try {
-      await memberRecord.save();
-      console.log(`✅ Created new member record for ${userName} in team ${teamData.teamName}`);
-    } catch (saveError) {
-      // If save fails due to index conflict, try to find existing record again
-      if (saveError.code === 11000) {
-        console.log(`⚠️ Index conflict, searching for existing record...`);
-        memberRecord = await SeatingSlots.findOne({ 
-          $or: [
-            { userName, teamId: teamData.teamId },
-            { memberName: userName, teamId: teamData.teamId }
-          ],
-          status: 'active' 
-        });
-        
-        if (!memberRecord) {
-          throw new Error(`Unable to create or find member record for ${userName}`);
-        }
-      } else {
-        throw saveError;
-      }
+    // 1. Find user by username in User collection
+    const user = await User.findOne({ username: username });
+    if (!user) {
+      console.log(`❌ User not found: ${username}`);
+      throw new Error(`User with username ${username} not found in User collection`);
     }
+    
+    console.log(`✅ User found: ${user.username}, teamId: ${user.teamId}`);
+    
+    // 2. Check if user has teamId
+    if (!user.teamId) {
+      console.log(`❌ User ${username} has no teamId assigned`);
+      throw new Error(`User ${username} has no team assigned`);
+    }
+    
+    // 3. Get team info from Team model
+    const team = await Team.findOne({ teamId: user.teamId });
+    if (!team) {
+      console.log(`❌ Team not found: ${user.teamId}`);
+      throw new Error(`Team with ID ${user.teamId} not found in Team collection`);
+    }
+    
+    console.log(`✅ Team found: ${team.teamName}, color: ${team.color}`);
+    
+    // 4. Find or create member record in SeatingSlots
+    let memberRecord = await SeatingSlots.findOne({ username: username, teamId: user.teamId, status: 'active' });
+    
+    if (!memberRecord) {
+      console.log(`📝 Creating new member record for: ${username}`);
+      memberRecord = new SeatingSlots({
+        username: username,           // Use username field consistently
+        teamId: user.teamId,
+        teamName: team.teamName,
+        teamColor: team.color,
+        bookings: [],
+        totalBookings: 0,
+        status: 'active'
+      });
+      
+      try {
+        await memberRecord.save();
+        console.log(`✅ Member record created successfully`);
+      } catch (saveError) {
+        // If save fails due to index conflict, try to find existing record again
+        if (saveError.code === 11000) {
+          console.log(`⚠️ Index conflict, searching for existing record...`);
+          memberRecord = await SeatingSlots.findOne({ 
+            username: username, 
+            teamId: user.teamId,
+            status: 'active' 
+          });
+          
+          if (!memberRecord) {
+            throw new Error(`Unable to create or find member record for ${username}`);
+          }
+        } else {
+          throw saveError;
+        }
+      }
+    } else {
+      console.log(`✅ Member record found: ${memberRecord.username}`);
+    }
+
+    return memberRecord;
+    
+  } catch (error) {
+    console.error('❌ Error in getOrCreateMemberRecord:', error.message);
+    throw error;
   }
-  
-  return memberRecord;
 };
 
-// UPDATED: Enhanced validation function to allow multiple bookings with proper time gaps
+// FIXED: Enhanced validation function with safe date handling
 export const validateBookingConflict = (memberRecord, seatId, date, entryTime, exitTime) => {
   const parseTime = (timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -170,13 +287,37 @@ export const validateBookingConflict = (memberRecord, seatId, date, entryTime, e
     return start1 < end2 && start2 < end1;
   };
   
-  const requestDate = new Date(date).toISOString().split('T')[0];
+  // SAFE DATE HANDLING - Fix for Invalid time value error
+  let requestDate;
+  try {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      throw new Error(`Invalid date provided: ${date}`);
+    }
+    requestDate = dateObj.toISOString().split('T')[0];
+  } catch (error) {
+    console.error(`❌ Date parsing error in validateBookingConflict:`, error);
+    throw new Error(`Invalid date format: ${date}`);
+  }
+  
   const requestStart = parseTime(entryTime);
   const requestEnd = parseTime(exitTime);
   
-  // UPDATED: Only check conflicts for the SAME seat on the SAME date
+  // Only check conflicts for the SAME seat on the SAME date
   return memberRecord.bookings.some(booking => {
-    const bookingDate = new Date(booking.date).toISOString().split('T')[0];
+    // SAFE BOOKING DATE HANDLING
+    let bookingDate;
+    try {
+      const bookingDateObj = new Date(booking.date);
+      if (isNaN(bookingDateObj.getTime())) {
+        console.warn(`⚠️ Invalid booking date found: ${booking.date}, skipping validation`);
+        return false; // Skip invalid booking dates
+      }
+      bookingDate = bookingDateObj.toISOString().split('T')[0];
+    } catch (error) {
+      console.warn(`⚠️ Error parsing booking date: ${booking.date}, skipping`);
+      return false; // Skip invalid booking dates
+    }
     
     // Only check conflicts for the SAME seat on the SAME date
     if (bookingDate === requestDate && booking.seatId === seatId) {
@@ -189,18 +330,30 @@ export const validateBookingConflict = (memberRecord, seatId, date, entryTime, e
   });
 };
 
-// FIXED: Enhanced validation for same-day bookings on same floor with corrected logic
+// FIXED: Enhanced validation for same-day bookings with safe date handling
 export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTime, exitTime) => {
   const parseTime = (timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
   };
   
-  const requestDate = new Date(date).toISOString().split('T')[0];
+  // SAFE DATE HANDLING
+  let requestDate;
+  try {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      throw new Error(`Invalid date provided: ${date}`);
+    }
+    requestDate = dateObj.toISOString().split('T')[0];
+  } catch (error) {
+    console.error(`❌ Date parsing error in validateSameDayFloorBookings:`, error);
+    throw new Error(`Invalid date format: ${date}`);
+  }
+  
   const requestStart = parseTime(entryTime);
   const requestEnd = parseTime(exitTime);
   
-  const memberName = memberRecord.userName || memberRecord.memberName;
+  const memberName = memberRecord.username;
   
   console.log(`🔍 === SAME DAY FLOOR VALIDATION START ===`);
   console.log(`👤 Member: ${memberName}`);
@@ -210,7 +363,20 @@ export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTim
   
   // Find all bookings for the same date and floor (regardless of seat)
   const sameDayFloorBookings = memberRecord.bookings.filter(booking => {
-    const bookingDate = new Date(booking.date).toISOString().split('T')[0];
+    // SAFE BOOKING DATE HANDLING
+    let bookingDate;
+    try {
+      const bookingDateObj = new Date(booking.date);
+      if (isNaN(bookingDateObj.getTime())) {
+        console.warn(`⚠️ Invalid booking date found: ${booking.date}, skipping`);
+        return false; // Skip invalid booking dates
+      }
+      bookingDate = bookingDateObj.toISOString().split('T')[0];
+    } catch (error) {
+      console.warn(`⚠️ Error parsing booking date: ${booking.date}, skipping`);
+      return false; // Skip invalid booking dates
+    }
+    
     const matches = bookingDate === requestDate && booking.floor === floor;
     
     if (matches) {
@@ -270,7 +436,7 @@ export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTim
   return { valid: true };
 };
 
-// UPDATED: Check seat availability across all members
+// FIXED: Check seat availability with safe date handling
 export const checkSeatAvailability = async (seatId, floor, date, entryTime, exitTime) => {
   try {
     const parseTime = (timeStr) => {
@@ -282,7 +448,19 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
       return start1 < end2 && start2 < end1;
     };
     
-    const targetDate = new Date(date).toISOString().split('T')[0];
+    // SAFE DATE HANDLING
+    let targetDate;
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        throw new Error(`Invalid date provided: ${date}`);
+      }
+      targetDate = dateObj.toISOString().split('T')[0];
+    } catch (error) {
+      console.error(`❌ Date parsing error in checkSeatAvailability:`, error);
+      throw new Error(`Invalid date format: ${date}`);
+    }
+    
     const requestStart = parseTime(entryTime);
     const requestEnd = parseTime(exitTime);
     
@@ -290,19 +468,29 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
     
     for (const memberRecord of memberRecords) {
       for (const booking of memberRecord.bookings) {
-        const bookingDate = new Date(booking.date).toISOString().split('T')[0];
+        // SAFE BOOKING DATE HANDLING
+        let bookingDate;
+        try {
+          const bookingDateObj = new Date(booking.date);
+          if (isNaN(bookingDateObj.getTime())) {
+            console.warn(`⚠️ Invalid booking date found: ${booking.date}, skipping availability check`);
+            continue; // Skip invalid booking dates
+          }
+          bookingDate = bookingDateObj.toISOString().split('T')[0];
+        } catch (error) {
+          console.warn(`⚠️ Error parsing booking date: ${booking.date}, skipping`);
+          continue; // Skip invalid booking dates
+        }
         
         if (bookingDate === targetDate && booking.seatId === seatId && booking.floor === floor) {
           const bookingStart = parseTime(booking.entryTime);
           const bookingEnd = parseTime(booking.exitTime);
           
           if (timesOverlap(requestStart, requestEnd, bookingStart, bookingEnd)) {
-            // Get member name - prefer userName over memberName
-            const memberName = memberRecord.userName || memberRecord.memberName;
             return {
               available: false,
               conflict: {
-                userName: memberName,
+                username: memberRecord.username,
                 teamName: memberRecord.teamName,
                 existingTime: `${booking.entryTime} - ${booking.exitTime}`,
                 requestedTime: `${entryTime} - ${exitTime}`,
@@ -321,13 +509,13 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
   }
 };
 
-// UPDATED: Modified addBookingToMember function with enhanced validation
-export const addBookingToMember = async (userName, teamData, bookingData) => {
+// FIXED: Modified addBookingToMember function - simplified to work with User/Team models
+export const addBookingToMember = async (username, bookingData) => {
   try {
-    console.log(`🎯 === BOOKING VALIDATION START for ${userName} ===`);
+    console.log(`🎯 === BOOKING VALIDATION START for ${username} ===`);
     
-    // Get or create member record
-    const memberRecord = await getOrCreateMemberRecord(userName, teamData);
+    // Get or create member record (this handles User and Team lookups internally)
+    const memberRecord = await getOrCreateMemberRecord(username);
     
     // Business validation 1: Check for conflicts within this member's bookings (for SAME SEAT only)
     const hasConflict = validateBookingConflict(
@@ -369,7 +557,7 @@ export const addBookingToMember = async (userName, teamData, bookingData) => {
     );
     
     if (!availability.available) {
-      throw new Error(`Seat ${bookingData.seatId} is already booked by ${availability.conflict.userName} from ${availability.conflict.existingTime}`);
+      throw new Error(`Seat ${bookingData.seatId} is already booked by ${availability.conflict.username} from ${availability.conflict.existingTime}`);
     }
     
     // Business validation 3: Date validation
@@ -412,7 +600,7 @@ export const addBookingToMember = async (userName, teamData, bookingData) => {
     // Save the record
     await memberRecord.save();
     
-    console.log(`✅ Added booking ${bookingId} for member ${userName}`);
+    console.log(`✅ Added booking ${bookingId} for member ${username}`);
     console.log(`🎯 === BOOKING VALIDATION END ===`);
     
     return {
@@ -428,13 +616,13 @@ export const addBookingToMember = async (userName, teamData, bookingData) => {
 };
 
 // Remove booking from member's record
-export const removeBookingFromMember = async (userName, teamId, seatId, date, entryTime, exitTime) => {
+export const removeBookingFromMember = async (username, teamId, seatId, date, entryTime, exitTime) => {
   try {
     // Find member's record
-    const memberRecord = await findMemberByTeam(userName, teamId);
+    const memberRecord = await findMemberByTeam(username, teamId);
     
     if (!memberRecord) {
-      throw new Error(`No booking record found for member ${userName} in team ${teamId}`);
+      throw new Error(`No booking record found for member ${username} in team ${teamId}`);
     }
     
     // Remove booking by seat and date
@@ -447,7 +635,7 @@ export const removeBookingFromMember = async (userName, teamId, seatId, date, en
     // Save the updated record
     await memberRecord.save();
     
-    console.log(`✅ Removed booking for seat ${seatId} from member ${userName}`);
+    console.log(`✅ Removed booking for seat ${seatId} from member ${username}`);
     
     return {
       memberRecord,
@@ -501,7 +689,7 @@ export const verifyUserPermissions = async (username, teamName, targetMemberName
   return { user, team };
 };
 
-// UPDATED: Get all bookings for display (includes time information and handles field mapping)
+// FIXED: Get all bookings for display (handles username field consistently + safe dates)
 export const getAllBookingsForDisplay = async () => {
   try {
     const memberRecords = await SeatingSlots.find({ status: 'active' });
@@ -509,17 +697,26 @@ export const getAllBookingsForDisplay = async () => {
     
     memberRecords.forEach(memberRecord => {
       memberRecord.bookings.forEach(booking => {
+        // SAFE BOOKING DATE HANDLING
+        let bookingDate;
+        try {
+          bookingDate = new Date(booking.date);
+          if (isNaN(bookingDate.getTime())) {
+            console.warn(`⚠️ Invalid booking date found: ${booking.date}, skipping display`);
+            return;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Error parsing booking date: ${booking.date}, skipping display`);
+          return;
+        }
+        
         // Only include future/current bookings
-        const bookingDate = new Date(booking.date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
         if (bookingDate >= today) {
-          // Get member name - prefer userName (new model) over memberName (old data)
-          const memberName = memberRecord.userName || memberRecord.memberName;
-          
           result.chairs[booking.seatId] = {
-            userName: memberName, // Always return as userName for frontend
+            username: memberRecord.username,
             teamColor: memberRecord.teamColor,
             teamName: memberRecord.teamName,
             teamId: memberRecord.teamId,
@@ -542,13 +739,24 @@ export const getAllBookingsForDisplay = async () => {
   }
 };
 
-// UPDATED: Get filtered bookings by date and floor (includes time information and handles field mapping)
+// FIXED: Get filtered bookings by date and floor (handles username field consistently + safe dates)
 export const getFilteredBookings = async (date, floor) => {
   try {
-    const targetDate = new Date(date);
-    targetDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(targetDate);
-    endDate.setHours(23, 59, 59, 999);
+    // SAFE DATE HANDLING
+    let targetDate, endDate;
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        throw new Error(`Invalid date provided: ${date}`);
+      }
+      targetDate = new Date(dateObj);
+      targetDate.setHours(0, 0, 0, 0);
+      endDate = new Date(targetDate);
+      endDate.setHours(23, 59, 59, 999);
+    } catch (error) {
+      console.error(`❌ Date parsing error in getFilteredBookings:`, error);
+      throw new Error(`Invalid date format: ${date}`);
+    }
     
     const memberRecords = await SeatingSlots.find({
       status: 'active',
@@ -560,15 +768,27 @@ export const getFilteredBookings = async (date, floor) => {
     
     memberRecords.forEach(memberRecord => {
       memberRecord.bookings.forEach(booking => {
-        const bookingDate = new Date(booking.date);
+        // SAFE BOOKING DATE HANDLING
+        let bookingDate;
+        try {
+          bookingDate = new Date(booking.date);
+          if (isNaN(bookingDate.getTime())) {
+            console.warn(`⚠️ Invalid booking date found: ${booking.date}, skipping display`);
+            return;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Error parsing booking date: ${booking.date}, skipping display`);
+          return;
+        }
         
         if (bookingDate >= targetDate && bookingDate <= endDate && booking.floor === Number(floor)) {
-          // Get member name - prefer userName (new model) over memberName (old data)
-          const memberName = memberRecord.userName || memberRecord.memberName;
+          // FRONTEND COMPATIBLE FORMAT - provide both userName and username + convert colors
+          const hexColor = convertToHexColor(memberRecord.teamColor);
           
           result.chairs[booking.seatId] = {
-            userName: memberName, // Always return as userName for frontend
-            teamColor: memberRecord.teamColor,
+            userName: memberRecord.username,           // Frontend expects userName
+            username: memberRecord.username,           // Backup field
+            teamColor: hexColor,                       // Convert to hex color
             teamName: memberRecord.teamName,
             teamId: memberRecord.teamId,
             bookedAt: booking.bookedAt,
@@ -579,8 +799,16 @@ export const getFilteredBookings = async (date, floor) => {
             exitTime: booking.exitTime,
             timeSlot: `${booking.entryTime} - ${booking.exitTime}`
           };
+          
+          console.log(`📋 Adding booking to result: ${booking.seatId} -> ${memberRecord.username} (${hexColor})`);
         }
       });
+    });
+    
+    console.log("🎯 Filtered bookings result:", {
+      totalChairs: Object.keys(result.chairs).length,
+      chairs: Object.keys(result.chairs),
+      sampleBooking: Object.keys(result.chairs).length > 0 ? result.chairs[Object.keys(result.chairs)[0]] : null
     });
     
     return result;
@@ -590,13 +818,24 @@ export const getFilteredBookings = async (date, floor) => {
   }
 };
 
-// UPDATED: Enhanced findBookingForUnbooking to handle multiple bookings same day/floor and field mapping
+// FIXED: Enhanced findBookingForUnbooking to handle username field consistently + safe dates
 export const findBookingForUnbooking = async (seatId, floor, date, entryTime = null, exitTime = null) => {
   try {
-    const targetDate = new Date(date);
-    targetDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(targetDate);
-    endDate.setHours(23, 59, 59, 999);
+    // SAFE DATE HANDLING
+    let targetDate, endDate;
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        throw new Error(`Invalid date provided: ${date}`);
+      }
+      targetDate = new Date(dateObj);
+      targetDate.setHours(0, 0, 0, 0);
+      endDate = new Date(targetDate);
+      endDate.setHours(23, 59, 59, 999);
+    } catch (error) {
+      console.error(`❌ Date parsing error in findBookingForUnbooking:`, error);
+      throw new Error(`Invalid date format: ${date}`);
+    }
     
     const memberRecords = await SeatingSlots.find({
       status: 'active',
@@ -607,7 +846,18 @@ export const findBookingForUnbooking = async (seatId, floor, date, entryTime = n
     
     for (const memberRecord of memberRecords) {
       for (const booking of memberRecord.bookings) {
-        const bookingDate = new Date(booking.date);
+        // SAFE BOOKING DATE HANDLING
+        let bookingDate;
+        try {
+          bookingDate = new Date(booking.date);
+          if (isNaN(bookingDate.getTime())) {
+            console.warn(`⚠️ Invalid booking date found: ${booking.date}, skipping unbooking check`);
+            continue;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Error parsing booking date: ${booking.date}, skipping unbooking check`);
+          continue;
+        }
         
         // If specific time provided, match exactly
         if (entryTime && exitTime) {
@@ -648,13 +898,13 @@ export const findBookingForUnbooking = async (seatId, floor, date, entryTime = n
   }
 };
 
-// Get member's booking statistics
-export const getMemberBookingStats = async (userName, teamId = null) => {
+// Get member's booking statistics with safe date handling
+export const getMemberBookingStats = async (username, teamId = null) => {
   try {
-    let memberRecord = await findMemberCurrentRecord(userName);
+    let memberRecord = await findMemberCurrentRecord(username);
     
     if (!memberRecord && teamId) {
-      memberRecord = await findMemberByTeam(userName, teamId);
+      memberRecord = await findMemberByTeam(username, teamId);
     }
     
     if (!memberRecord) {
@@ -668,8 +918,34 @@ export const getMemberBookingStats = async (userName, teamId = null) => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     
-    const futureBookings = memberRecord.bookings.filter(booking => new Date(booking.date) >= now);
-    const pastBookings = memberRecord.bookings.filter(booking => new Date(booking.date) < now);
+    // SAFE DATE HANDLING for booking statistics
+    const futureBookings = memberRecord.bookings.filter(booking => {
+      try {
+        const bookingDate = new Date(booking.date);
+        if (isNaN(bookingDate.getTime())) {
+          console.warn(`⚠️ Invalid booking date found: ${booking.date}, excluding from stats`);
+          return false;
+        }
+        return bookingDate >= now;
+      } catch (error) {
+        console.warn(`⚠️ Error parsing booking date: ${booking.date}, excluding from stats`);
+        return false;
+      }
+    });
+    
+    const pastBookings = memberRecord.bookings.filter(booking => {
+      try {
+        const bookingDate = new Date(booking.date);
+        if (isNaN(bookingDate.getTime())) {
+          console.warn(`⚠️ Invalid booking date found: ${booking.date}, excluding from stats`);
+          return false;
+        }
+        return bookingDate < now;
+      } catch (error) {
+        console.warn(`⚠️ Error parsing booking date: ${booking.date}, excluding from stats`);
+        return false;
+      }
+    });
     
     return {
       totalBookings: memberRecord.totalBookings,
