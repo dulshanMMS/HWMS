@@ -1,12 +1,7 @@
-// services/seatBookingService.js - FIXED to work with User and Team models consistently
+// services/seatBookingService.js - OPTION 1: Complete Part 1 of 2
 import SeatingSlots from "../models/SeatingSlots.js";
 import Team from "../models/Team.js";
 import User from "../models/User.js";
-import { 
-  parseTimeToMinutes, 
-  timesOverlap,
-  parseDateSafely 
-} from "./seatValidationService.js";
 
 // ADDED: Missing convertToHexColor function
 const convertToHexColor = (color) => {
@@ -49,13 +44,13 @@ const convertToHexColor = (color) => {
   return namedColors[color?.toLowerCase()] || color || '#000000';
 };
 
-// Utility functions moved from model
-export const generateBookingId = (username) => {
-  return `${username}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+// OPTION 1: Utility functions - read from database username, work with userName
+export const generateBookingId = (userName) => {
+  return `${userName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 };
 
 export const addBookingToRecord = (memberRecord, bookingData) => {
-  const bookingId = generateBookingId(memberRecord.username);
+  const bookingId = generateBookingId(memberRecord.userName);
   
   memberRecord.bookings.push({
     bookingId,
@@ -165,14 +160,14 @@ export const getFutureBookings = (memberRecord) => {
   });
 };
 
-// FIXED: Database query functions - use username consistently
-export const findMemberCurrentRecord = async (username) => {
-  const record = await SeatingSlots.findOne({ username, status: 'active' });
+// OPTION 1: Database query functions - query database with userName (SeatingSlots uses userName)
+export const findMemberCurrentRecord = async (userName) => {
+  const record = await SeatingSlots.findOne({ userName, status: 'active' });
   return record;
 };
 
-export const findMemberByTeam = async (username, teamId) => {
-  const record = await SeatingSlots.findOne({ username, teamId, status: 'active' });
+export const findMemberByTeam = async (userName, teamId) => {
+  const record = await SeatingSlots.findOne({ userName, teamId, status: 'active' });
   return record;
 };
 
@@ -200,24 +195,24 @@ export const findBookingsByDateAndFloor = async (date, floor) => {
   });
 };
 
-// FIXED: Get or create member's booking record - properly handle User and Team models
-export const getOrCreateMemberRecord = async (username) => {
+// OPTION 1: Get or create member's booking record - FIXED mapping
+export const getOrCreateMemberRecord = async (userName) => {
   try {
-    console.log(`🔍 Looking for member: ${username}`);
+    console.log(`🔍 Looking for member: ${userName}`);
     
-    // 1. Find user by username in User collection
-    const user = await User.findOne({ username: username });
+    // 1. Find user by username (database field) in User collection
+    const user = await User.findOne({ username: userName });
     if (!user) {
-      console.log(`❌ User not found: ${username}`);
-      throw new Error(`User with username ${username} not found in User collection`);
+      console.log(`❌ User not found: ${userName}`);
+      throw new Error(`User with username ${userName} not found in User collection`);
     }
     
     console.log(`✅ User found: ${user.username}, teamId: ${user.teamId}`);
     
     // 2. Check if user has teamId
     if (!user.teamId) {
-      console.log(`❌ User ${username} has no teamId assigned`);
-      throw new Error(`User ${username} has no team assigned`);
+      console.log(`❌ User ${userName} has no teamId assigned`);
+      throw new Error(`User ${userName} has no team assigned`);
     }
     
     // 3. Get team info from Team model
@@ -229,13 +224,13 @@ export const getOrCreateMemberRecord = async (username) => {
     
     console.log(`✅ Team found: ${team.teamName}, color: ${team.color}`);
     
-    // 4. Find or create member record in SeatingSlots
-    let memberRecord = await SeatingSlots.findOne({ username: username, teamId: user.teamId, status: 'active' });
+    // 4. Find or create member record in SeatingSlots using userName field
+    let memberRecord = await SeatingSlots.findOne({ userName: userName, teamId: user.teamId, status: 'active' });
     
     if (!memberRecord) {
-      console.log(`📝 Creating new member record for: ${username}`);
+      console.log(`📝 Creating new member record for: ${userName}`);
       memberRecord = new SeatingSlots({
-        username: username,           // Use username field consistently
+        userName: userName,           // Store as userName in SeatingSlots
         teamId: user.teamId,
         teamName: team.teamName,
         teamColor: team.color,
@@ -248,24 +243,23 @@ export const getOrCreateMemberRecord = async (username) => {
         await memberRecord.save();
         console.log(`✅ Member record created successfully`);
       } catch (saveError) {
-        // If save fails due to index conflict, try to find existing record again
         if (saveError.code === 11000) {
           console.log(`⚠️ Index conflict, searching for existing record...`);
           memberRecord = await SeatingSlots.findOne({ 
-            username: username, 
+            userName: userName, 
             teamId: user.teamId,
             status: 'active' 
           });
           
           if (!memberRecord) {
-            throw new Error(`Unable to create or find member record for ${username}`);
+            throw new Error(`Unable to create or find member record for ${userName}`);
           }
         } else {
           throw saveError;
         }
       }
     } else {
-      console.log(`✅ Member record found: ${memberRecord.username}`);
+      console.log(`✅ Member record found: ${memberRecord.userName}`);
     }
 
     return memberRecord;
@@ -276,7 +270,7 @@ export const getOrCreateMemberRecord = async (username) => {
   }
 };
 
-// FIXED: Enhanced validation function with safe date handling
+// OPTION 1: Enhanced validation function with safe date handling
 export const validateBookingConflict = (memberRecord, seatId, date, entryTime, exitTime) => {
   const parseTime = (timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -328,9 +322,10 @@ export const validateBookingConflict = (memberRecord, seatId, date, entryTime, e
     
     return false; // No conflict if different seat or different date
   });
-};
+};// services/seatBookingService.js - OPTION 1: Complete Part 2 of 2
+// (Continue from Part 1)
 
-// FIXED: Enhanced validation for same-day bookings with safe date handling
+// Enhanced validation for same-day bookings with safe date handling
 export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTime, exitTime) => {
   const parseTime = (timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -353,7 +348,7 @@ export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTim
   const requestStart = parseTime(entryTime);
   const requestEnd = parseTime(exitTime);
   
-  const memberName = memberRecord.username;
+  const memberName = memberRecord.userName;
   
   console.log(`🔍 === SAME DAY FLOOR VALIDATION START ===`);
   console.log(`👤 Member: ${memberName}`);
@@ -436,7 +431,7 @@ export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTim
   return { valid: true };
 };
 
-// FIXED: Check seat availability with safe date handling
+// Check seat availability with safe date handling
 export const checkSeatAvailability = async (seatId, floor, date, entryTime, exitTime) => {
   try {
     const parseTime = (timeStr) => {
@@ -490,7 +485,7 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
             return {
               available: false,
               conflict: {
-                username: memberRecord.username,
+                userName: memberRecord.userName,
                 teamName: memberRecord.teamName,
                 existingTime: `${booking.entryTime} - ${booking.exitTime}`,
                 requestedTime: `${entryTime} - ${exitTime}`,
@@ -509,13 +504,13 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
   }
 };
 
-// FIXED: Modified addBookingToMember function - simplified to work with User/Team models
-export const addBookingToMember = async (username, bookingData) => {
+// Modified addBookingToMember function
+export const addBookingToMember = async (userName, bookingData) => {
   try {
-    console.log(`🎯 === BOOKING VALIDATION START for ${username} ===`);
+    console.log(`🎯 === BOOKING VALIDATION START for ${userName} ===`);
     
     // Get or create member record (this handles User and Team lookups internally)
-    const memberRecord = await getOrCreateMemberRecord(username);
+    const memberRecord = await getOrCreateMemberRecord(userName);
     
     // Business validation 1: Check for conflicts within this member's bookings (for SAME SEAT only)
     const hasConflict = validateBookingConflict(
@@ -557,7 +552,7 @@ export const addBookingToMember = async (username, bookingData) => {
     );
     
     if (!availability.available) {
-      throw new Error(`Seat ${bookingData.seatId} is already booked by ${availability.conflict.username} from ${availability.conflict.existingTime}`);
+      throw new Error(`Seat ${bookingData.seatId} is already booked by ${availability.conflict.userName} from ${availability.conflict.existingTime}`);
     }
     
     // Business validation 3: Date validation
@@ -600,7 +595,7 @@ export const addBookingToMember = async (username, bookingData) => {
     // Save the record
     await memberRecord.save();
     
-    console.log(`✅ Added booking ${bookingId} for member ${username}`);
+    console.log(`✅ Added booking ${bookingId} for member ${userName}`);
     console.log(`🎯 === BOOKING VALIDATION END ===`);
     
     return {
@@ -616,13 +611,13 @@ export const addBookingToMember = async (username, bookingData) => {
 };
 
 // Remove booking from member's record
-export const removeBookingFromMember = async (username, teamId, seatId, date, entryTime, exitTime) => {
+export const removeBookingFromMember = async (userName, teamId, seatId, date, entryTime, exitTime) => {
   try {
     // Find member's record
-    const memberRecord = await findMemberByTeam(username, teamId);
+    const memberRecord = await findMemberByTeam(userName, teamId);
     
     if (!memberRecord) {
-      throw new Error(`No booking record found for member ${username} in team ${teamId}`);
+      throw new Error(`No booking record found for member ${userName} in team ${teamId}`);
     }
     
     // Remove booking by seat and date
@@ -635,7 +630,7 @@ export const removeBookingFromMember = async (username, teamId, seatId, date, en
     // Save the updated record
     await memberRecord.save();
     
-    console.log(`✅ Removed booking for seat ${seatId} from member ${username}`);
+    console.log(`✅ Removed booking for seat ${seatId} from member ${userName}`);
     
     return {
       memberRecord,
@@ -648,14 +643,15 @@ export const removeBookingFromMember = async (username, teamId, seatId, date, en
   }
 };
 
-// Get user and team information
-export const getUserAndTeam = async (username, teamName) => {
+// OPTION 1: Get user and team information - query with username
+export const getUserAndTeam = async (userName, teamName) => {
   const team = await Team.findOne({ teamName });
   if (!team) {
     throw new Error('Team not found');
   }
 
-  const user = await User.findOne({ username, teamId: team.teamId });
+  // Query User collection with username field
+  const user = await User.findOne({ username: userName, teamId: team.teamId });
   if (!user) {
     throw new Error('User not found in the team');
   }
@@ -663,17 +659,17 @@ export const getUserAndTeam = async (username, teamName) => {
   return { user, team };
 };
 
-// Verify user permissions
-export const verifyUserPermissions = async (username, teamName, targetMemberName = null) => {
-  const { user, team } = await getUserAndTeam(username, teamName);
+// OPTION 1: Verify user permissions - query with username
+export const verifyUserPermissions = async (userName, teamName, targetMemberName = null) => {
+  const { user, team } = await getUserAndTeam(userName, teamName);
   
   // If booking for someone else, user must be admin
-  if (targetMemberName && targetMemberName !== username) {
+  if (targetMemberName && targetMemberName !== userName) {
     if (user.role !== 'admin') {
       throw new Error('Only team leaders can book for other members');
     }
     
-    // Verify target member exists in team
+    // Verify target member exists in team - query with username
     const targetMember = await User.findOne({ 
       username: targetMemberName, 
       teamId: team.teamId 
@@ -689,7 +685,7 @@ export const verifyUserPermissions = async (username, teamName, targetMemberName
   return { user, team };
 };
 
-// FIXED: Get all bookings for display (handles username field consistently + safe dates)
+// Get all bookings for display
 export const getAllBookingsForDisplay = async () => {
   try {
     const memberRecords = await SeatingSlots.find({ status: 'active' });
@@ -716,7 +712,7 @@ export const getAllBookingsForDisplay = async () => {
         
         if (bookingDate >= today) {
           result.chairs[booking.seatId] = {
-            username: memberRecord.username,
+            userName: memberRecord.userName,
             teamColor: memberRecord.teamColor,
             teamName: memberRecord.teamName,
             teamId: memberRecord.teamId,
@@ -739,7 +735,7 @@ export const getAllBookingsForDisplay = async () => {
   }
 };
 
-// FIXED: Get filtered bookings by date and floor (handles username field consistently + safe dates)
+// OPTION 1: Get filtered bookings - return userName to frontend
 export const getFilteredBookings = async (date, floor) => {
   try {
     // SAFE DATE HANDLING
@@ -782,12 +778,12 @@ export const getFilteredBookings = async (date, floor) => {
         }
         
         if (bookingDate >= targetDate && bookingDate <= endDate && booking.floor === Number(floor)) {
-          // FRONTEND COMPATIBLE FORMAT - provide both userName and username + convert colors
+          // FRONTEND COMPATIBLE FORMAT - provide userName field + convert colors
           const hexColor = convertToHexColor(memberRecord.teamColor);
           
           result.chairs[booking.seatId] = {
-            userName: memberRecord.username,           // Frontend expects userName
-            username: memberRecord.username,           // Backup field
+            userName: memberRecord.userName,           // Frontend expects userName
+            username: memberRecord.userName,           // Backup field for compatibility
             teamColor: hexColor,                       // Convert to hex color
             teamName: memberRecord.teamName,
             teamId: memberRecord.teamId,
@@ -800,7 +796,7 @@ export const getFilteredBookings = async (date, floor) => {
             timeSlot: `${booking.entryTime} - ${booking.exitTime}`
           };
           
-          console.log(`📋 Adding booking to result: ${booking.seatId} -> ${memberRecord.username} (${hexColor})`);
+          console.log(`📋 Adding booking to result: ${booking.seatId} -> ${memberRecord.userName} (${hexColor})`);
         }
       });
     });
@@ -818,7 +814,7 @@ export const getFilteredBookings = async (date, floor) => {
   }
 };
 
-// FIXED: Enhanced findBookingForUnbooking to handle username field consistently + safe dates
+// Enhanced findBookingForUnbooking
 export const findBookingForUnbooking = async (seatId, floor, date, entryTime = null, exitTime = null) => {
   try {
     // SAFE DATE HANDLING
@@ -898,13 +894,13 @@ export const findBookingForUnbooking = async (seatId, floor, date, entryTime = n
   }
 };
 
-// Get member's booking statistics with safe date handling
-export const getMemberBookingStats = async (username, teamId = null) => {
+// Get member's booking statistics
+export const getMemberBookingStats = async (userName, teamId = null) => {
   try {
-    let memberRecord = await findMemberCurrentRecord(username);
+    let memberRecord = await findMemberCurrentRecord(userName);
     
     if (!memberRecord && teamId) {
-      memberRecord = await findMemberByTeam(username, teamId);
+      memberRecord = await findMemberByTeam(userName, teamId);
     }
     
     if (!memberRecord) {

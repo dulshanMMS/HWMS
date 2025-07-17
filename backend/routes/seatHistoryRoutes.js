@@ -7,10 +7,10 @@ const router = express.Router();
 // Get Seat Booking History (Total bookings + Dates) - Auth Required
 router.post("/user", verifyToken, async (req, res) => {
     const { type } = req.body; // Type is received from frontend as "seat"
-    const userName = req.user.username; // Extracted from token
+    const userName = req.user.userName; // Extracted from token - UPDATED to userName
 
     try {
-        // Find the user's booking record
+        // Find the user's booking record - UPDATED field name to userName
         const userBookings = await SeatingSlots.findOne({ userName: userName });
 
         if (!userBookings) {
@@ -43,10 +43,10 @@ router.post("/user", verifyToken, async (req, res) => {
 // Get Seat Booking Details for a Specific Date - Auth Required
 router.post("/user/details", verifyToken, async (req, res) => {
     const { type, date } = req.body;
-    const userName = req.user.username; // From token
+    const userName = req.user.userName; // From token - UPDATED to userName
 
     try {
-        // Find the user's booking record
+        // Find the user's booking record - UPDATED field name to userName
         const userBookings = await SeatingSlots.findOne({ userName: userName });
 
         if (!userBookings) {
@@ -85,10 +85,10 @@ router.post("/user/details", verifyToken, async (req, res) => {
 // Delete Seat Booking - Auth Required
 router.delete("/user/delete", verifyToken, async (req, res) => {
     const { bookingId, seatId, date, entryTime, exitTime } = req.body;
-    const userName = req.user.username; // From token
+    const userName = req.user.userName; // From token - UPDATED to userName
 
     try {
-        // Find the user's booking record
+        // Find the user's booking record - UPDATED field name to userName
         const userBookings = await SeatingSlots.findOne({ userName: userName });
 
         if (!userBookings) {
@@ -134,9 +134,10 @@ router.delete("/user/delete", verifyToken, async (req, res) => {
 
 // Get user's team information - Auth Required
 router.get("/user/team", verifyToken, async (req, res) => {
-    const userName = req.user.username;
+    const userName = req.user.userName; // UPDATED to userName
 
     try {
+        // UPDATED field name in query to userName
         const userBookings = await SeatingSlots.findOne(
             { userName: userName }, 
             { teamName: 1, teamColor: 1, teamId: 1, totalBookings: 1 }

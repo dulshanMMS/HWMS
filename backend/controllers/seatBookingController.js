@@ -1,4 +1,4 @@
-// controllers/seatBookingController.js - COMPLETE FIXED VERSION
+// controllers/seatBookingController.js - OPTION 1: Complete fixed version
 import User from "../models/User.js";
 import { 
   addBookingToMember,
@@ -31,18 +31,20 @@ const convertToHexColor = (teamColor) => {
   return colorMap[teamColor] || '#22c55e';
 };
 
-// Controller functions for user management
+// OPTION 1: Controller functions - query with username, return userName
 export const getUserByUsername = async (req, res) => {
   try {
+    // Query database with username field (what's actually in database)
     const user = await User.findOne({ username: req.params.username }).select("-password");
     
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
     
-    // Map the role field from the new model (admin/user) to the old expected format (leader/member)
+    // Map the response to provide userName for frontend
     const userResponse = {
       ...user.toObject(),
+      userName: user.username, // Map username to userName for frontend
       role: user.role === "admin" ? "leader" : "member"
     };
     
@@ -55,15 +57,17 @@ export const getUserByUsername = async (req, res) => {
 
 export const getTeamMembers = async (req, res) => {
   try {
+    // Query with username field
     const users = await User.find({ teamId: req.params.teamId }).select("-password");
     
     if (!users || users.length === 0) {
       return res.status(404).json({ message: "No users found for this team" });
     }
     
-    // Map the role field for each user
+    // Map each user to provide userName field
     const mappedUsers = users.map(user => ({
       ...user.toObject(),
+      userName: user.username, // Map username to userName for frontend
       role: user.role === "admin" ? "leader" : "member"
     }));
     
@@ -121,11 +125,12 @@ export const getAllBookingsForDate = async (req, res) => {
     // Get ALL bookings for the date/floor
     const result = await getFilteredBookings(date, floor);
 
-    // Transform chair data to use `username` and `color`
+    // Transform chair data to use `userName` consistently
     const transformedChairs = {};
     for (const [chairId, booking] of Object.entries(result.chairs)) {
       transformedChairs[chairId] = {
-        username: booking.userName,
+        userName: booking.userName, // Keep userName consistent
+        username: booking.userName, // Provide username for backward compatibility
         color: booking.teamColor,
         timeSlot: booking.timeSlot,
       };
@@ -138,8 +143,7 @@ export const getAllBookingsForDate = async (req, res) => {
   }
 };
 
-
-// FIXED: Member booking controller
+// OPTION 1: Member booking controller
 export const bookSeatForMember = async (req, res) => {
   const { userName, seatId } = req.params;
 
@@ -200,7 +204,7 @@ export const bookSeatForMember = async (req, res) => {
 
     console.log("📋 bookingData being passed to addBookingToMember:", bookingData);
 
-    // FIXED: Use only userName and bookingData (removed teamData parameter)
+    // Use userName consistently
     const result = await addBookingToMember(userName, bookingData);
     
     console.log("✅ Booking saved successfully!");
@@ -254,7 +258,7 @@ export const bookSeatForMember = async (req, res) => {
   }
 };
 
-// FIXED: Leader booking for team member
+// OPTION 1: Leader booking for team member
 export const bookSeatForTeamMember = async (req, res) => {
   const { userName, seatId, teamMemberName } = req.params;
 
@@ -325,7 +329,7 @@ export const bookSeatForTeamMember = async (req, res) => {
 
     console.log("📋 bookingData being passed to addBookingToMember:", bookingData);
 
-    // FIXED: Use only teamMemberName and bookingData (removed teamData parameter)
+    // Use teamMemberName consistently
     const result = await addBookingToMember(teamMemberName, bookingData);
     
     console.log("✅ Leader booking saved successfully!");
@@ -381,7 +385,7 @@ export const bookSeatForTeamMember = async (req, res) => {
   }
 };
 
-// FIXED: Unbook seat controller
+// OPTION 1: Unbook seat controller
 export const unbookSeat = async (req, res) => {
   const { roomId, seatId, floor, date } = req.params;
 
@@ -412,8 +416,8 @@ export const unbookSeat = async (req, res) => {
 
     const { memberRecord, booking } = foundBooking;
     
-    // Use consistent username field
-    const memberName = memberRecord.username;
+    // Use consistent userName field
+    const memberName = memberRecord.userName;
     
     console.log("🎯 Found booking:", {
       userName: memberName,

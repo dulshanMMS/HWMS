@@ -1,4 +1,4 @@
-// models/SeatingSlots.js - Fixed to match User and Team models
+// models/SeatingSlots.js - Updated to use userName consistently across all files
 import mongoose from "mongoose";
 
 // Define schema for individual booking in the array
@@ -13,9 +13,9 @@ const BookingItemSchema = new mongoose.Schema({
   bookedAt: { type: Date, default: Date.now }
 }, { _id: false, timestamps: false });
 
-// Define schema for member's booking record - FIXED to match User model
+// Define schema for member's booking record - UPDATED to use userName
 const MemberBookingSchema = new mongoose.Schema({
-  username: { type: String, required: true, index: true },  // Changed from userName to username
+  userName: { type: String, required: true, index: true },  // Changed from username to userName
   teamId: { type: String, required: true, index: true },
   teamName: { type: String, required: true },
   teamColor: { type: String, required: true },
@@ -30,9 +30,9 @@ const MemberBookingSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound indexes for efficient queries - UPDATED field names
-MemberBookingSchema.index({ username: 1, teamId: 1 }, { unique: true });  // Changed userName to username
-MemberBookingSchema.index({ username: 1, status: 1 });                   // Changed userName to username
+// Compound indexes for efficient queries - UPDATED to use userName
+MemberBookingSchema.index({ userName: 1, teamId: 1 }, { unique: true });
+MemberBookingSchema.index({ userName: 1, status: 1 });
 MemberBookingSchema.index({ teamId: 1, status: 1 });
 MemberBookingSchema.index({ "bookings.date": 1, "bookings.floor": 1 });
 MemberBookingSchema.index({ "bookings.seatId": 1, "bookings.date": 1 });
