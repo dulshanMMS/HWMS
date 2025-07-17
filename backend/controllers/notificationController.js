@@ -4,11 +4,57 @@ import {
   getNotificationPreferences as getPreferencesService,
   updateNotificationPreferences as updatePreferencesService 
 } from '../services/notificationService.js';
+import User from '../models/User.js';
+// export const getUserOwnNotifications = async (req, res) => {
+//   try {
+//     console.log('req.user:', req.user); // Debug log to inspect req.user
+//     if (!req.user || !req.user.id) {
+//       return res.status(401).json({ message: 'User not authenticated', user: req.user });
+//     }
+//     const { page = 1, limit = 10 } = req.query;
+//     const userId = req.user.id; // Use id instead of _id
+//     console.log(`Fetching notifications for userId: ${userId}`);
+//     const notifications = await NotificationService.getNotifications(page, limit, userId);
+//     res.json(notifications);
+//   } catch (error) {
+//     console.error('Error in getUserOwnNotifications:', error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
 
+// export const getAdminOwnNotifications = async (req, res) => {
+//   try {
+//     console.log('req.user:', req.user); // Debug log to inspect req.user
+//     if (!req.user || !req.user.id) {
+//       return res.status(401).json({ message: 'User not authenticated', user: req.user });
+//     }
+//     const user = await User.findById(req.user.id).select('role');
+//     if (!user) {
+//       return res.status(401).json({ message: 'User not found' });
+//     }
+//     if (user.role !== 'admin') {
+//       return res.status(403).json({ message: 'Access denied. Admins only.' });
+//     }
+//     const { page = 1, limit = 10 } = req.query;
+//     const userId = req.user.id; // Use id instead of _id
+//     console.log(`Fetching admin notifications for userId: ${userId}`);
+//     const notifications = await NotificationService.getNotifications(page, limit, userId);
+//     res.json(notifications);
+//   } catch (error) {
+//     console.error('Error in getAdminOwnNotifications:', error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
 export const getUserOwnNotifications = async (req, res) => {
   try {
+    console.log('req.user:', req.user); // Debug log
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'User not authenticated', user: req.user });
+    }
     const { page = 1, limit = 10 } = req.query;
-    const userId = req.user._id;
+    const userId = req.user.id;
+     // Use id from JWT payload
+    console.log(`Fetching notifications for userId: ${userId}`);
     const notifications = await NotificationService.getNotifications(page, limit, userId);
     res.json(notifications);
   } catch (error) {
@@ -19,8 +65,21 @@ export const getUserOwnNotifications = async (req, res) => {
 
 export const getAdminOwnNotifications = async (req, res) => {
   try {
+     
+    console.log('req.user:', req.user);// Debug log
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'User not authenticated', user: req.user });
+    }
+    const user = await User.findById(req.user.id).select('role');
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admins only.' });
+    }
     const { page = 1, limit = 10 } = req.query;
-    const userId = req.user._id;
+    const userId = req.user.id; // Use id from JWT payload
+    console.log(`Fetching admin notifications for userId: ${userId}`);
     const notifications = await NotificationService.getNotifications(page, limit, userId);
     res.json(notifications);
   } catch (error) {
@@ -28,6 +87,84 @@ export const getAdminOwnNotifications = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+// export const getUserOwnNotifications = async (req, res) => {
+//   try {
+//     const { page = 1, limit = 10 } = req.query;
+//     const userId = req.user._id;
+//     const notifications = await NotificationService.getNotifications(page, limit, userId);
+//     res.json(notifications);
+//   } catch (error) {
+//     console.error('Error in getUserOwnNotifications:', error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
+
+// export const getAdminOwnNotifications = async (req, res) => {
+//   try {
+//     const { page = 1, limit = 10 } = req.query;
+//     const userId = req.user._id;
+//     const notifications = await NotificationService.getNotifications(page, limit, userId);
+//     res.json(notifications);
+//   } catch (error) {
+//     console.error('Error in getAdminOwnNotifications:', error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
+
+// export const getUserOwnNotifications = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id) {
+//       return res.status(401).json({ message: 'User not authenticated' });
+//     }
+//     const { page = 1, limit = 10 } = req.query;
+//     const userId = req.user._id;
+//     console.log(`Fetching notifications for userId: ${userId}`); // Debug log
+//     const notifications = await NotificationService.getNotifications(page, limit, userId);
+//     res.json(notifications);
+//   } catch (error) {
+//     console.error('Error in getUserOwnNotifications:', error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
+// export const getUserOwnNotifications = async (req, res) => {
+//   try {
+//     console.log('req.user:', req.user); // Debug log
+//     if (!req.user || !req.user._id) {
+//       return res.status(401).json({ message: 'User not authenticated', user: req.user });
+//     }
+//     const { page = 1, limit = 10 } = req.query;
+//     const userId = req.user._id;
+//     console.log(`Fetching notifications for userId: ${userId}`);
+//     const notifications = await NotificationService.getNotifications(page, limit, userId);
+//     res.json(notifications);
+//   } catch (error) {
+//     console.error('Error in getUserOwnNotifications:', error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
+
+// export const getAdminOwnNotifications = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id) {
+//       return res.status(401).json({ message: 'User not authenticated' });
+//     }
+//     const user = await User.findById(req.user._id).select('role');
+//     if (!user) {
+//       return res.status(401).json({ message: 'User not found' });
+//     }
+//     if (user.role !== 'admin') {
+//       return res.status(403).json({ message: 'Access denied. Admins only.' });
+//     }
+//     const { page = 1, limit = 10 } = req.query;
+//     const userId = req.user._id;
+//     console.log(`Fetching admin notifications for userId: ${userId}`); // Debug log
+//     const notifications = await NotificationService.getNotifications(page, limit, userId);
+//     res.json(notifications);
+//   } catch (error) {
+//     console.error('Error in getAdminOwnNotifications:', error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };;
 
 export const getUnreadNotificationCount = async (req, res) => {
   try {

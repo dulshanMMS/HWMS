@@ -9,6 +9,7 @@ import parkingRoutes from "./routes/parkingRoutes.js";
 import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import ratingRoutes from "./routes/ratingRoutes.js"; // New rating routes
 import { initializeNotificationSystem } from './services/notificationService.js';
 //import { generateNotificationsForPastBookings } from './services/NotificationService.js';
 
@@ -16,6 +17,7 @@ import { initializeNotificationSystem } from './services/notificationService.js'
 import ParkingSlot from './models/ParkingSlots.js';
 import SeatingSlot from './models/SeatingSlots.js';
 import Notification from "./models/Notification.js";
+import Rating from "./models/ratingModel.js"; // New rating model
 
 import parkinghistoryRoutes from "./routes/parkinghistoryRoutes.js"; //history
 import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";   //parking_admin
@@ -59,6 +61,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
+app.use("/api/ratings", ratingRoutes); // New rating routes
 
 // Test Routes
 app.get("/", (req, res) => {

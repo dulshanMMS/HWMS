@@ -1,6 +1,6 @@
 import express from 'express';
 import {
-  
+  getAdminOwnNotifications,
   getUserOwnNotifications,
   getUnreadNotificationCount,
   getAdminUnreadCount,
@@ -12,12 +12,12 @@ import {
   
   createBookingNotification,
   createCancellationNotification,
-  getAdminOwnNotifications,
+  
   updateNotificationPreferences,
   getNotificationPreferences,
 } from '../controllers/notificationController.js';
-import { verifyToken, authenticateUser } from '../middleware/authMiddleware.js';
 
+import { verifyToken, authenticateUser, isAdmin } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 // User routes
@@ -30,8 +30,10 @@ router.delete('/:id', verifyToken, deleteNotification);
 
 // Admin routes
 
-router.get('/admin/unread-count', verifyToken, getAdminUnreadCount);
-router.get('/admin/own', verifyToken, getAdminOwnNotifications);
+// router.get('/admin/unread-count', verifyToken, getAdminUnreadCount);
+// router.get('/admin/own', verifyToken, getAdminOwnNotifications);
+router.get('/admin/unread-count', verifyToken, isAdmin, getAdminUnreadCount);
+router.get('/admin/own', verifyToken, isAdmin, getAdminOwnNotifications);
 
 router.post('/send-bulk', verifyToken, sendBulkNotification);
 

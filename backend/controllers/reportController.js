@@ -5,58 +5,7 @@ import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
 
-// export const floorUsage = async (req, res) => {
-//   try {
-//     const { startDate, endDate } = req.query;
-//     const start = new Date(startDate);
-//     const end = new Date(endDate);
 
-//     const dateInRange = (date) => {
-//       const d = new Date(date);
-//       return d >= start && d <= end;
-//     };
-
-//     const bookings = [];
-
-//     // Get seating bookings from member booking records
-//     const seatingMembers = await SeatingSlot.find();
-//     seatingMembers.forEach(member => {
-//       member.bookings.forEach(booking => {
-//         if (dateInRange(booking.date)) {
-//           bookings.push({
-//             ...booking.toObject(),
-//             userName: member.userName,
-//             team: member.teamName,
-//             teamId: member.teamId,
-//             teamColor: member.teamColor,
-//             details: `Floor ${booking.floor}`,
-//             type: 'seat'
-//           });
-//         }
-//       });
-//     });
-
-//     // Get parking bookings from slot records
-//     const parkingSlots = await ParkingSlot.find();
-//     parkingSlots.forEach(slot => {
-//       slot.bookings.forEach(b => {
-//         if (dateInRange(b.date)) {
-//           bookings.push({
-//             ...b.toObject(),
-//             team: b.team || 'No Team',
-//             details: `Floor ${slot.floor}`,
-//             type: 'parking'
-//           });
-//         }
-//       });
-//     });
-
-//     res.json({ bookings });
-//   } catch (error) {
-//     console.error('Error fetching floor usage:', error);
-//     res.status(500).json({ error: 'Failed to fetch floor usage data' });
-//   }
-// };
 
 export const floorUsage = async (req, res) => {
   try {
