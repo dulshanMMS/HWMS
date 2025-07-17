@@ -10,6 +10,8 @@ import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import { initializeNotificationSystem } from './services/notificationService.js';
+//import { generateNotificationsForPastBookings } from './services/NotificationService.js';
+
 
 import ParkingSlot from './models/ParkingSlots.js';
 import SeatingSlot from './models/SeatingSlots.js';
@@ -72,7 +74,14 @@ const mongoURI = process.env.MONGO_URI;
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(async () => {
     console.log('MongoDB Connected');
-
+    
+    try {
+      console.log('Initializing notification system...');
+      initializeNotificationSystem();
+      console.log('Notification system initialized successfully');
+    } catch (error) {
+      console.error('Error initializing notification system:', error);
+    }
     // Compute total bookings from SeatingSlot and ParkingSlot
     const seatingSlots = await SeatingSlot.find();
     const parkingSlots = await ParkingSlot.find();
@@ -82,8 +91,8 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
     const notificationCount = await Notification.countDocuments();
 
     console.log(`Bookings: ${totalSeatBookings + totalParkingBookings}, Notifications: ${notificationCount}`);
-
-    initializeNotificationSystem();
+    //await generateNotificationsForPastBookings();
+    // initializeNotificationSystem();
   })
   .catch(err => console.error('MongoDB connection error:', err));
 

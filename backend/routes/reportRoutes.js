@@ -36,7 +36,8 @@ router.get('/floor-usage', floorUsage);
 
 // Get all bookings (admin only)
 router.get('/all-bookings', allBookings);
-
+// routes/reportRoutes.js
+//router.get('/all-bookings', verifyToken, allBookings);
 // Team stats for a given team name
 router.get('/team-stats', getTeamStats);
 
