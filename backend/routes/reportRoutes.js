@@ -1,7 +1,18 @@
 import express from 'express';
 import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
-import { teamLookup, userLookup, analytics, userBookings, recentBookings, floorUsage, allBookings } from '../controllers/reportController.js';
+import { 
+  teamLookup, 
+  userLookup, 
+  analytics, 
+  userBookings, 
+  recentBookings, 
+  floorUsage, 
+  allBookings,
+  getTeamStats,
+  getTeamSuggestions,
+  getUserSuggestions
+} from '../controllers/reportController.js';
 
 const router = express.Router();
 
@@ -25,5 +36,13 @@ router.get('/floor-usage', floorUsage);
 
 // Get all bookings (admin only)
 router.get('/all-bookings', allBookings);
+// routes/reportRoutes.js
+//router.get('/all-bookings', verifyToken, allBookings);
+// Team stats for a given team name
+router.get('/team-stats', getTeamStats);
+
+// NEW: Autocomplete endpoints
+router.get('/team-suggestions', getTeamSuggestions);
+router.get('/user-suggestions', getUserSuggestions);
 
 export default router;
