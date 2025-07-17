@@ -18,4 +18,8 @@ const announcementSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+<<<<<<< HEAD
 export default mongoose.model("Announcement", announcementSchema);
+=======
+export default mongoose.model("Announcement", announcementSchema);
+>>>>>>> origin/dev2
