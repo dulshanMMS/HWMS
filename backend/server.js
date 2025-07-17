@@ -23,6 +23,7 @@ import userRoutes from "./routes/user.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import bookingViewRoutes from './routes/bookingViewRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
+import announcementRoutes from "./routes/announcementRoutes.js";
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
+app.use("/api/announcements", announcementRoutes);
 
 // Test Routes
 app.get("/", (req, res) => {
