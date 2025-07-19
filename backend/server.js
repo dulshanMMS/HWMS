@@ -28,26 +28,20 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-
-// FIXED: Proper CORS configuration for Socket.IO
-const io = new Server(server, {
+export const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000"], // Multiple origins
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: "http://localhost:5173",
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   }
 });
 
-// Export io so other files can use it
-export { io };
-
-// FIXED: Proper CORS for Express with multiple origins
-app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:3000"],
+// Middleware
+const corsOptions = {
+  origin: 'http://localhost:5173',
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-}));
-
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
@@ -74,74 +68,19 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "Connection successful!", timestamp: new Date().toISOString() });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  const health = {
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
-    environment: process.env.NODE_ENV || 'development'
-  };
-  res.json(health);
-});
-
-// FIXED: Single MongoDB connection with proper error handling
-const connectDB = async () => {
-  let retries = 3;
-  let retryDelay = 2000;
-
-  while (retries > 0) {
+// MongoDB Connection
+const mongoURI = process.env.MONGO_URI;
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(async () => {
+    console.log('MongoDB Connected');
+    
     try {
-      console.log(`🔄 MongoDB connection attempt ${4 - retries}...`);
-      
-      await mongoose.connect(process.env.MONGO_URI, {
-        serverSelectionTimeoutMS: 10000,
-        socketTimeoutMS: 45000,
-        family: 4,
-        maxPoolSize: 10,
-        minPoolSize: 2,
-      });
-      
-      console.log("✅ MongoDB connected successfully");
-      
-      // Set up connection event listeners
-      mongoose.connection.on('error', (err) => {
-        console.error("❌ MongoDB connection error:", err);
-      });
-      
-      mongoose.connection.on('disconnected', () => {
-        console.log("⚠️ MongoDB disconnected");
-      });
-      
-      mongoose.connection.on('reconnected', () => {
-        console.log("🔄 MongoDB reconnected");
-      });
-
-      // MOVED: Initialize notification system and compute bookings here
-      await initializeApp();
-      
-      return; // Success, exit the retry loop
-      
-    } catch (err) {
-      retries--;
-      console.error(`❌ MongoDB connection attempt ${4 - retries} failed:`, err.message);
-      
-      if (retries === 0) {
-        console.error("💥 All MongoDB connection attempts failed. Exiting...");
-        process.exit(1);
-      }
-      
-      console.log(`⏳ Retrying MongoDB connection in ${retryDelay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
-      retryDelay *= 2;
+      console.log('Initializing notification system...');
+      initializeNotificationSystem();
+      console.log('Notification system initialized successfully');
+    } catch (error) {
+      console.error('Error initializing notification system:', error);
     }
-  }
-};
-
-// FIXED: Initialize app services after DB connection
-const initializeApp = async () => {
-  try {
     // Compute total bookings from SeatingSlot and ParkingSlot
     const seatingSlots = await SeatingSlot.find();
     const parkingSlots = await ParkingSlot.find();
@@ -150,94 +89,31 @@ const initializeApp = async () => {
     const totalParkingBookings = parkingSlots.reduce((sum, slot) => sum + slot.bookings.length, 0);
     const notificationCount = await Notification.countDocuments();
 
-    console.log(`📊 Bookings: ${totalSeatBookings + totalParkingBookings}, Notifications: ${notificationCount}`);
+    console.log(`Bookings: ${totalSeatBookings + totalParkingBookings}, Notifications: ${notificationCount}`);
+    //await generateNotificationsForPastBookings();
+    // initializeNotificationSystem();
+  })
+  .catch(err => console.error('MongoDB connection error:', err));
 
-    // Initialize notification system
-    initializeNotificationSystem();
-  } catch (error) {
-    console.error("❌ Error initializing app:", error);
-  }
-};
+// WebSocket Setup
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
 
-// FIXED: Single Socket.IO connection handler
-io.on('connection', (socket) => {
-  console.log('🔌 User connected:', socket.id);
-  
-  // Handle new notifications
   socket.on("newNotification", async (notification) => {
     try {
       const newNotification = new Notification(notification);
       await newNotification.save();
       io.emit("notificationReceived", newNotification);
-      console.log("📬 New notification created and broadcasted");
     } catch (error) {
-      console.error("❌ Error creating notification:", error);
-      socket.emit("notificationError", { error: "Failed to create notification" });
+      console.error("Error creating notification:", error);
     }
   });
-  
-  socket.on('disconnect', () => {
-    console.log('🔌 User disconnected:', socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
   });
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('❌ Global error handler:', err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-  });
-});
-
-// Handle 404 routes
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
-// Graceful shutdown
-const gracefulShutdown = async (signal) => {
-  console.log(`\n🛑 Received ${signal}. Graceful shutdown...`);
-  try {
-    await mongoose.connection.close();
-    console.log('📦 MongoDB connection closed.');
-    server.close(() => {
-      console.log('🔌 HTTP server closed.');
-      process.exit(0);
-    });
-  } catch (err) {
-    console.error('❌ Error during shutdown:', err);
-    process.exit(1);
-  }
-};
-
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-
-// FIXED: Start server after DB connection
-const startServer = async () => {
-  try {
-    // Initialize database connection first
-    await connectDB();
-    
-    // Start the server
-    const PORT = process.env.PORT || 6001;
-    server.listen(PORT, (err) => {
-      if (err) {
-        console.error(`❌ Failed to start server on port ${PORT}:`, err.message);
-        process.exit(1);
-      }
-      console.log(`🚀 Server is running on port ${PORT}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`🔌 Socket.IO enabled with CORS for localhost:5173`);
-    });
-    
-  } catch (error) {
-    console.error("❌ Failed to start server:", error);
-    process.exit(1);
-  }
-};
-
-// Start the application
-startServer();
+// Start Server
+const PORT = process.env.PORT || 6001;
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

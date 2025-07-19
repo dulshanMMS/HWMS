@@ -1,7 +1,6 @@
-// middleware/seatBookingMiddleware.js - Simplified and error-free
+// middleware/seatBookingMiddleware.js - Self-booking only version
 import { validateBookingData, validateRouteParams } from "../services/seatValidationService.js";
 
-// Basic input sanitization middleware
 export const sanitizeSeatBookingInput = (req, res, next) => {
   try {
     if (req.body) {
@@ -38,10 +37,8 @@ export const sanitizeSeatBookingInput = (req, res, next) => {
   }
 };
 
-// Basic validation middleware (optional - can be skipped)
 export const validateBookingInput = (req, res, next) => {
   try {
-    // Only validate if all required fields are present
     const { roomId, teamName, floor, date, entryTime, exitTime } = req.body;
     
     if (!roomId || !teamName || !floor || !date || !entryTime || !exitTime) {
@@ -65,12 +62,10 @@ export const validateBookingInput = (req, res, next) => {
     next();
   } catch (error) {
     console.error("Error in validation middleware:", error);
-    // Continue to controller even if validation fails
     next();
   }
 };
 
-// Route parameter validation middleware
 export const validateRequiredParams = (requiredParams) => {
   return (req, res, next) => {
     try {
@@ -86,12 +81,11 @@ export const validateRequiredParams = (requiredParams) => {
       next();
     } catch (error) {
       console.error("Error in parameter validation middleware:", error);
-      next(); // Continue even if validation fails
+      next();
     }
   };
 };
 
-// Query parameter validation middleware
 export const validateQueryParams = (requiredParams) => {
   return (req, res, next) => {
     try {
@@ -107,24 +101,23 @@ export const validateQueryParams = (requiredParams) => {
       next();
     } catch (error) {
       console.error("Error in query validation middleware:", error);
-      next(); // Continue even if validation fails
+      next();
     }
   };
 };
 
-// Simple logging middleware
+// SIMPLIFIED: Logging middleware for self-booking only
 export const logSeatBookingOperation = (operation) => {
   return (req, res, next) => {
     try {
       const timestamp = new Date().toISOString();
-      const { userName, seatId, teamMemberName } = req.params;
+      const { userName, seatId } = req.params;
       const { teamName, floor, date } = req.body || {};
       
       console.log(`🪑 [${timestamp}] SEAT ${operation.toUpperCase()}:`, {
         operation,
         userName,
         seatId,
-        teamMemberName,
         teamName,
         floor,
         date,
@@ -134,18 +127,17 @@ export const logSeatBookingOperation = (operation) => {
       next();
     } catch (error) {
       console.error("Error in logging middleware:", error);
-      next(); // Continue even if logging fails
+      next();
     }
   };
 };
 
-// Basic time constraint check (optional)
 export const checkSeatBookingTimeConstraints = (req, res, next) => {
   try {
     const { date, entryTime } = req.body;
     
     if (!date || !entryTime) {
-      return next(); // Skip if no date/time provided
+      return next();
     }
     
     const bookingDateTime = new Date(`${date}T${entryTime}:00`);
@@ -163,24 +155,22 @@ export const checkSeatBookingTimeConstraints = (req, res, next) => {
     next();
   } catch (error) {
     console.error("Error in time constraint middleware:", error);
-    next(); // Continue even if check fails
+    next();
   }
 };
 
-// Simple quota check (optional)
+// SIMPLIFIED: Quota check for self-booking only
 export const checkSeatBookingQuota = async (req, res, next) => {
   try {
     const { userName } = req.params;
     const { date } = req.body;
     
     if (!userName || !date) {
-      return next(); // Skip if no user/date provided
+      return next();
     }
     
-    // Import service function
     const { getMemberBookingStats } = await import("../services/seatBookingService.js");
     
-    // Get member's booking stats
     const stats = await getMemberBookingStats(userName);
     
     // Check against daily limit (configurable)
@@ -197,11 +187,10 @@ export const checkSeatBookingQuota = async (req, res, next) => {
     next();
   } catch (error) {
     console.error("Error in quota check middleware:", error);
-    next(); // Continue even if quota check fails
+    next();
   }
 };
 
-// Error handling middleware
 export const handleSeatBookingErrors = (error, req, res, next) => {
   try {
     console.error("Seat booking operation error:", error);
@@ -231,11 +220,8 @@ export const handleSeatBookingErrors = (error, req, res, next) => {
       return res.status(409).json({ message: error.message });
     }
     
-    if (error.message.includes('permission') || error.message.includes('Only team leaders')) {
-      return res.status(403).json({ message: error.message });
-    }
+    // REMOVED: Admin/leader permission errors - not needed for self-booking
     
-    // Handle rate limiting errors
     if (error.message.includes('limit') || error.message.includes('quota')) {
       return res.status(429).json({ message: error.message });
     }

@@ -1,4 +1,4 @@
-// routes/seatBookings.js - Updated for member-wise bookings
+// routes/seatBookings.js - Self-booking routes only
 import express from "express";
 
 import {
@@ -6,9 +6,8 @@ import {
   getTeamMembers,
   getFilteredBookingsController,
   getAllBookingsController,
-  getAllBookingsForDate, // ✅ included here only once
-  bookSeatForMember,
-  bookSeatForTeamMember,
+  getAllBookingsForDate,
+  bookSeatForMember, // Only self-booking
   unbookSeat,
   getMemberStats
 } from "../controllers/seatBookingController.js";
@@ -42,7 +41,7 @@ router.get("/filtered",
 
 router.get("/all-bookings", 
   validateQueryParams(['date', 'floor']), 
-  getAllBookingsForDate // ✅ now wired up
+  getAllBookingsForDate
 );
 
 router.get("/", getAllBookingsController);
@@ -53,20 +52,17 @@ router.get("/stats/:userName",
   getMemberStats
 );
 
-// ==================== Seat Booking Routes ====================
+// ==================== Self-Booking Route Only ====================
+// MODIFIED: Only allow users to book for themselves
 router.post("/member/:userName/seat/:seatId",
   validateRequiredParams(['userName', 'seatId']),
   sanitizeSeatBookingInput,
-  logSeatBookingOperation('member_booking'),
+  logSeatBookingOperation('self_booking'),
   bookSeatForMember
 );
 
-router.post("/leader/:userName/member/:teamMemberName/seat/:seatId",
-  validateRequiredParams(['userName', 'teamMemberName', 'seatId']),
-  sanitizeSeatBookingInput,
-  logSeatBookingOperation('leader_booking'),
-  bookSeatForTeamMember
-);
+// REMOVED: Leader booking route - no longer needed
+// router.post("/leader/:userName/member/:teamMemberName/seat/:seatId", ...)
 
 // ==================== Seat Unbooking Route ====================
 router.delete("/unbook/:roomId/:seatId/:floor/:date",
