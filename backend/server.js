@@ -12,6 +12,8 @@ import parkingRoutes from "./routes/parkingRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import { initializeNotificationSystem } from './services/notificationService.js';
+//import { generateNotificationsForPastBookings } from './services/NotificationService.js';
+
 
 import ParkingSlot from './models/ParkingSlots.js';
 import SeatingSlot from './models/SeatingSlots.js';
@@ -23,6 +25,11 @@ import eventRoutes from './routes/events.js';
 import userRoutes from "./routes/user.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import bookingViewRoutes from './routes/bookingViewRoutes.js';
+import teamRoutes from './routes/teamRoutes.js';
+import announcementRoutes from "./routes/announcementRoutes.js";
+
+import messageRoutes from './routes/messageRoutes.js';
+import { socketController } from './controllers/socketController.js';
 
 dotenv.config();
 
@@ -58,6 +65,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Test Routes
 app.get("/", (req, res) => {
@@ -73,7 +82,7 @@ const mongoURI = process.env.MONGO_URI;
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(async () => {
     console.log('MongoDB Connected');
-    
+
     try {
       console.log('Initializing notification system...');
       initializeNotificationSystem();
@@ -112,8 +121,9 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
+  socketController.handleMessagingEvents(socket, io);
 });
 
 // Start Server
-const PORT = process.env.PORT || 6001;
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

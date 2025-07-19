@@ -3,15 +3,13 @@ import verifyToken from "../middleware/authMiddleware.js";
 import {
   getRecentUserBookings,
   getUserBookingsByDate,
-
   getUserBookingsView,
   getRecentParkingBookings,
-
+  getUserBookingStats,        // NEW
+  getTodayUserBookingStats,   // NEW
 } from "../controllers/bookingViewController.js";
 
 const router = express.Router();
-
-
 
 // Fetch all bookings for calendar view of the logged-in user
 // Protected route requiring authentication
@@ -29,5 +27,12 @@ router.get("/recent", verifyToken, getRecentUserBookings);
 // Protected route
 router.get("/parking-recent", verifyToken, getRecentParkingBookings);
 
-export default router;
+// NEW: Get separated booking statistics for the logged-in user
+// Protected route
+router.get("/stats", verifyToken, getUserBookingStats);
 
+// NEW: Get today's booking statistics for the logged-in user
+// Protected route
+router.get("/stats/today", verifyToken, getTodayUserBookingStats);
+
+export default router;

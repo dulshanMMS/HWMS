@@ -1,193 +1,142 @@
-import * as NotificationService from '../services/notificationService.js';
-import User from '../models/User.js';
 
-export const getAllNotifications = async (req, res) => {
+import * as NotificationService from '../services/notificationService.js';
+import { 
+  getNotificationPreferences as getPreferencesService,
+  updateNotificationPreferences as updatePreferencesService 
+} from '../services/notificationService.js';
+
+export const getUserOwnNotifications = async (req, res) => {
   try {
-    const data = await NotificationService.getAllNotifications(req.user.id);
-    res.json(data);
+    const { page = 1, limit = 10 } = req.query;
+    const userId = req.user._id;
+    const notifications = await NotificationService.getNotifications(page, limit, userId);
+    res.json(notifications);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching notifications', error: error.message });
+    console.error('Error in getUserOwnNotifications:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-export const getAdminNotifications = async (req, res) => {
+export const getAdminOwnNotifications = async (req, res) => {
   try {
-    if (!req.user.isAdmin) return res.status(403).json({ message: 'Not authorized' });
-    const data = await NotificationService.getAdminNotifications();
-    res.json(data);
+    const { page = 1, limit = 10 } = req.query;
+    const userId = req.user._id;
+    const notifications = await NotificationService.getNotifications(page, limit, userId);
+    res.json(notifications);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching admin notifications', error: error.message });
+    console.error('Error in getAdminOwnNotifications:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 export const getUnreadNotificationCount = async (req, res) => {
   try {
-    const count = await NotificationService.getUnreadNotificationCount(req.user.id);
+    const userId = req.user._id;
+    const count = await NotificationService.getUnreadNotificationCount(userId);
     res.json({ count });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching unread count', error: error.message });
+    console.error('Error in getUnreadNotificationCount:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 export const getAdminUnreadCount = async (req, res) => {
   try {
-    if (!req.user.isAdmin) return res.status(403).json({ message: 'Not authorized' });
     const count = await NotificationService.getAdminUnreadCount();
     res.json({ count });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching admin unread count', error: error.message });
+    console.error('Error in getAdminUnreadCount:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 export const markAsRead = async (req, res) => {
   try {
-    const notification = await NotificationService.markAsRead(req.params.id, req.user.id);
+    const { id } = req.params;
+    const userId = req.user._id;
+    const notification = await NotificationService.markAsRead(id, userId);
     res.json(notification);
   } catch (error) {
-    res.status(500).json({ message: 'Error marking notification as read', error: error.message });
+    console.error('Error in markAsRead:', error);
+    res.status(400).json({ message: error.message });
   }
 };
 
 export const markAllAsRead = async (req, res) => {
   try {
-    await NotificationService.markAllAsRead(req.user.id);
+    const userId = req.user._id;
+    await NotificationService.markAllAsRead(userId);
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
-    res.status(500).json({ message: 'Error marking all as read', error: error.message });
+    console.error('Error in markAllAsRead:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 export const deleteNotification = async (req, res) => {
   try {
-    await NotificationService.deleteNotification(req.params.id, req.user.id);
-    res.json({ message: 'Notification deleted' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting notification', error: error.message });
-  }
-};
-
-export const sendNotification = async (req, res) => {
-  try {
-    if (!req.user.isAdmin) return res.status(403).json({ message: 'Not authorized' });
-
-    const notification = await NotificationService.sendNotification(req.body);
+    const { id } = req.params;
+    const userId = req.user._id;
+    const notification = await NotificationService.deleteNotification(id, userId);
     res.json(notification);
   } catch (error) {
-    res.status(500).json({ message: 'Error sending notification', error: error.message });
+    console.error('Error in deleteNotification:', error);
+    res.status(400).json({ message: error.message });
   }
 };
 
 export const sendBulkNotification = async (req, res) => {
   try {
-    if (!req.user?.role || req.user.role !== "admin") {
-      return res.status(403).json({ message: "Not authorized" });
-    }
-
-    const { message } = req.body;
-    if (!message || !message.trim()) {
-      return res.status(400).json({ message: "Message is required" });
-    }
-
-    const users = await User.find({}, "_id");
-    const recipients = users.map(u => u._id);
-    console.log("📬 Sending announcement to:", recipients.length, "users");
-
-    console.log("📬 Total users to notify:", recipients.length);
-
-    if (!recipients.length) {
-      return res.status(400).json({ message: "No users found to notify" });
-    }
-
-    const result = await NotificationService.sendBulkNotifications({
-      recipients,
-      title: "Announcement",
-      message,
-      type: "important",
-      emailSubject: "New Announcement from Admin"
-    });
-
-    res.json({ success: true, message: "Announcement sent", count: result.length });
+    const { recipients, title, message, type, emailSubject } = req.body;
+    const notifications = await NotificationService.sendBulkNotifications({ recipients, title, message, type, emailSubject });
+    res.json(notifications);
   } catch (error) {
-    console.error("❌ Error in sendBulkNotification:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error('Error in sendBulkNotification:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-
-export const getNotifications = async (req, res) => {
-  try {
-    const { page = 1, limit = 20 } = req.query;
-    const data = await NotificationService.getNotifications(page, limit);
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal Server Error', message: error.message });
-  }
-};
-
-import { getNotificationsForAdmin } from '../services/notificationService.js';
-
-export const getAdminOwnNotifications = async (req, res) => {
-  try {
-    const adminId = req.user.id; // assuming authentication middleware sets req.user
-    const notifications = await getNotificationsForAdmin(adminId);
-    res.status(200).json(notifications);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while fetching admin notifications' });
-  }
-};
-
-// New method to manually trigger booking notification
 export const createBookingNotification = async (req, res) => {
   try {
-    const { userId, slotNumber, floor, type, date, entryTime, exitTime, bookingId } = req.body;
-    
-    const result = await NotificationService.createBookingNotifications({
-      userId,
-      slotNumber,
-      floor,
-      type,
-      date,
-      entryTime,
-      exitTime,
-      bookingId
-    });
-    
-    res.status(201).json({
-      message: 'Booking notifications created successfully',
-      data: result
-    });
+    const { type, bookingRecord, latestBooking } = req.body;
+    const notification = await NotificationService.createBookingNotifications(type, bookingRecord, latestBooking);
+    res.json(notification);
   } catch (error) {
-    console.error('Error creating booking notification:', error);
-    res.status(500).json({ 
-      message: 'Error creating booking notification', 
-      error: error.message 
-    });
+    console.error('Error in createBookingNotification:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// New method to manually trigger cancellation notification
 export const createCancellationNotification = async (req, res) => {
   try {
     const { userId, slotNumber, floor, type, date, bookingId } = req.body;
-    
-    const result = await NotificationService.createCancellationNotifications({
-      userId,
-      slotNumber,
-      floor,
-      type,
-      date,
-      bookingId
-    });
-    
-    res.status(201).json({
-      message: 'Cancellation notifications created successfully',
-      data: result
-    });
+    const notification = await NotificationService.createCancellationNotifications({ userId, slotNumber, floor, type, date, bookingId });
+    res.json(notification);
   } catch (error) {
-    console.error('Error creating cancellation notification:', error);
-    res.status(500).json({ 
-      message: 'Error creating cancellation notification', 
-      error: error.message 
-    });
+    console.error('Error in createCancellationNotification:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+export const getNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const preferences = await getPreferencesService(userId);
+    res.json(preferences);
+  } catch (error) {
+    console.error('Error in getNotificationPreferences:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+export const updateNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const preferences = req.body;
+    const updatedPreferences = await updatePreferencesService(userId, preferences);
+    res.json(updatedPreferences);
+  } catch (error) {
+    console.error('Error in updateNotificationPreferences:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
