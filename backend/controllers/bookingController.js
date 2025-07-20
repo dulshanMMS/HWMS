@@ -2,7 +2,7 @@ import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
-import { isSameDay } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, subDays } from "date-fns";
 
 // 1. TOTAL TODAY BOOKINGS..................
 export const getTodayBookingCount = async (req, res) => {
@@ -90,13 +90,13 @@ export const getTeamBookingsToday = async (req, res) => {
       Team.find({})
     ]);
 
-    // 🔄 Build user → teamId map
+    // Build user → teamId map
     const userMap = {};
     users.forEach(user => {
       userMap[user.username] = user.teamId;
     });
 
-    // 🔄 Build teamId → name/color map
+    // Build teamId → name/color map
     const teamMap = {};
     teams.forEach(team => {
       teamMap[team.teamId] = {
@@ -105,7 +105,7 @@ export const getTeamBookingsToday = async (req, res) => {
       };
     });
 
-    // 🚗 Count PARKING bookings per team
+    // Count PARKING bookings per team
     for (const slot of parkingSlots) {
       for (const booking of slot.bookings || []) {
         const bookingDate = new Date(booking.date);
@@ -124,7 +124,7 @@ export const getTeamBookingsToday = async (req, res) => {
       }
     }
 
-    // 💺 Count SEATING bookings per team
+    // Count SEATING bookings per team
     for (const member of seatingSlots) {
       const bookings = member.bookings || [];
 
@@ -158,39 +158,65 @@ export const getTeamBookingsToday = async (req, res) => {
 
 // 4. FLOOR-WISE BOOKING COUNTS....
 export const getFloorBookingCount = async (req, res) => {
+  const { type = "parking", range = "today" } = req.query;
+
+  const now = new Date();
+
+  let rangeStart, rangeEnd;
+
+  switch (range) {
+    case "week":
+      rangeStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+      rangeEnd = endOfWeek(now, { weekStartsOn: 1 });     // Sunday
+      break;
+    case "month":
+      rangeStart = subDays(startOfDay(now), 29); // Last 30 days
+      rangeEnd = endOfDay(now);
+      break;
+    case "3months":
+      rangeStart = subDays(startOfDay(now), 89); // Last 90 days
+      rangeEnd = endOfDay(now);
+      break;
+    default:
+      rangeStart = startOfDay(now);
+      rangeEnd = endOfDay(now);
+  }
+
   try {
-    const parkingSlots = await ParkingSlot.find({});
-    const seatingSlots = await SeatingSlot.find({}); // One doc per user
+    const floorMap = {};
 
-    const parkingMap = {};
-    const seatingMap = {};
-
-    // Count all bookings in parking slots (grouped by floor)
-    parkingSlots.forEach(slot => {
-      const floor = slot.floor?.toString();
-      if (!floor) return;
-
-      const count = slot.bookings?.length || 0;
-      parkingMap[floor] = (parkingMap[floor] || 0) + count;
-    });
-
-    // Count all bookings in seating slots (nested array in each user doc)
-    seatingSlots.forEach(member => {
-      const bookings = member.bookings || [];
-      bookings.forEach(booking => {
-        const floor = booking.floor?.toString();
-        if (!floor) return;
-        seatingMap[floor] = (seatingMap[floor] || 0) + 1;
+    if (type === "parking") {
+      const slots = await ParkingSlot.find();
+      slots.forEach(slot => {
+        slot.bookings.forEach(b => {
+          const bookingDate = new Date(b.date + "T00:00:00");
+          if (bookingDate >= rangeStart && bookingDate <= rangeEnd) {
+            const floorKey = slot.floor?.toString() ?? "unknown";
+            floorMap[floorKey] = (floorMap[floorKey] || 0) + 1;
+          }
+        });
       });
-    });
+    }
 
-    const parking = Object.entries(parkingMap).map(([floor, count]) => ({ floor, count }));
-    const seating = Object.entries(seatingMap).map(([floor, count]) => ({ floor, count }));
+    else if (type === "seating") {
+      const members = await SeatingSlot.find();
+      members.forEach(member => {
+        (member.bookings || []).forEach(b => {
+          const bookingDate = new Date(b.date);
+          if (bookingDate >= rangeStart && bookingDate <= rangeEnd) {
+            const floorKey = b.floor?.toString() ?? "unknown";
+            floorMap[floorKey] = (floorMap[floorKey] || 0) + 1;
+          }
+        });
+      });
+    }
 
-    res.json({ success: true, parking, seating });
+    const result = Object.entries(floorMap).map(([floor, count]) => ({ floor, count }));
+
+    res.json({ success: true, data: result });
+
   } catch (err) {
     console.error("❌ Error in getFloorBookingCount:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
