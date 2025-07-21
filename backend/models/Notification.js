@@ -1,10 +1,8 @@
+
 import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
-  recipients: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
-,
-
-  
+  recipients: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   title: {
     type: String,
     required: true,
@@ -57,6 +55,9 @@ const notificationSchema = new mongoose.Schema({
   timestamps: true,
   versionKey: false
 });
+
+// Add TTL index to expire notifications after 30 days (2,592,000 seconds)
+notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
 export default Notification;

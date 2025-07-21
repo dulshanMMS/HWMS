@@ -21,11 +21,22 @@ const UserSchema = new mongoose.Schema({
 
     role: { type: String, enum: ["admin", "user"], default: "user" },
     notificationPreferences: {
-        email: { type: Boolean, default: true },
-        push: { type: Boolean, default: true },
-        bookingConfirmation: { type: Boolean, default: true },
-        cancellationAlert: { type: Boolean, default: true },
-        adminUpdates: { type: Boolean, default: true }
+        bookingConfirmation: {
+            email: { type: Boolean, default: true },
+            inApp: { type: Boolean, default: true }
+        },
+        cancellationAlert: {
+            email: { type: Boolean, default: true },
+            inApp: { type: Boolean, default: true }
+        },
+        adminAnnouncements: {
+            email: { type: Boolean, default: true },
+            inApp: { type: Boolean, default: true }
+        },
+        bookingReminder: {
+            email: { type: Boolean, default: true },
+            inApp: { type: Boolean, default: true } // Mandatory in-app
+        }
     }
 });
 
