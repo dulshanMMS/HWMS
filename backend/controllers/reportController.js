@@ -1,11 +1,8 @@
-
 import mongoose from 'mongoose';
 import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
-
-
 
 export const floorUsage = async (req, res) => {
   try {
@@ -39,7 +36,6 @@ export const floorUsage = async (req, res) => {
       };
     });
 
-    // Get seating bookings only
     const seatingMembers = await SeatingSlot.find();
     seatingMembers.forEach(member => {
       member.bookings.forEach(booking => {
@@ -78,30 +74,37 @@ export const floorUsage = async (req, res) => {
   }
 };
 
-
 export const userLookup = async (req, res) => {
   try {
-    const { username } = req.query;
-    if (!username) {
-      return res.status(400).json({ error: 'username required' });
+    const { name } = req.query;
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
     }
 
-    const user = await User.findOne({ username: new RegExp(`^${username}$`, 'i') });
+    const user = await User.findOne({
+      $or: [
+        { firstName: new RegExp(`^${name}$`, 'i') },
+        { lastName: new RegExp(`^${name}$`, 'i') },
+        { $and: [
+            { firstName: new RegExp(`^${name.split(' ')[0]}$`, 'i') },
+            { lastName: new RegExp(`^${name.split(' ')[1] || ''}$`, 'i') }
+          ]
+        }
+      ]
+    });
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     const team = await Team.findOne({ teamId: user.teamId });
 
-    // Find seating bookings using the member booking structure
     const seatingMember = await SeatingSlot.findOne({ 
-      userName: new RegExp(`^${username}$`, 'i') 
+      userName: new RegExp(`^${user.username}$`, 'i') 
     });
 
-    // Find parking bookings using the traditional slot structure
     const parkingSlots = await ParkingSlot.find();
 
-    // Process seating bookings
     const seatBookings = seatingMember ? seatingMember.bookings.map(booking => ({
       ...booking.toObject(),
       type: 'seat',
@@ -110,7 +113,6 @@ export const userLookup = async (req, res) => {
       teamName: seatingMember.teamName || team?.teamName || 'No Team'
     })) : [];
 
-    // Process parking bookings
     const parkingBookings = parkingSlots.flatMap(slot =>
       slot.bookings
         .filter(b =>
@@ -152,7 +154,6 @@ export const teamLookup = async (req, res) => {
 
     console.log('Searching for team:', team);
 
-    // Find team by name (case-insensitive)
     const teamData = await Team.findOne({ 
       teamName: new RegExp(`^${team.trim()}$`, 'i') 
     });
@@ -162,9 +163,8 @@ export const teamLookup = async (req, res) => {
       return res.status(404).json({ error: 'Team not found' });
     }
 
-    console.log('Found team:', teamData.teamName, 'with ID:', teamData.teamId);
+    console.log('Found team:', teamData.teamName, 'ID:', teamData.teamId);
 
-    // Find team members
     const users = await User.find({ teamId: teamData.teamId })
       .select("username firstName lastName teamId _id vehicleNumber");
     
@@ -175,21 +175,17 @@ export const teamLookup = async (req, res) => {
 
     console.log('Found users:', users.map(u => u.username));
 
-    // Get all seating members for this team
     const seatingMembers = await SeatingSlot.find({ teamId: teamData.teamId });
     console.log('Found seating members:', seatingMembers.length);
     
-    // Get all parking slots
     const parkingSlots = await ParkingSlot.find();
 
     const results = await Promise.all(users.map(async (user) => {
-      // Find seating bookings for this user
       const userSeatingMember = seatingMembers.find(
         member => member.userName.toLowerCase() === user.username.toLowerCase()
       );
       const seatBookings = userSeatingMember ? userSeatingMember.bookings : [];
 
-      // Find parking bookings for this user
       const parkingBookings = parkingSlots.flatMap(slot =>
         slot.bookings.filter(b => 
           b.userId?.toString() === user._id.toString() ||
@@ -236,15 +232,14 @@ export const teamLookup = async (req, res) => {
   }
 };
 
+
 export const analytics = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    // Apply default range if not provided
     const start = startDate ? new Date(startDate) : new Date('2000-01-01');
     const end = endDate ? new Date(endDate) : new Date('2100-01-01');
 
-    // Normalize times to include the full start & end days
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
@@ -253,7 +248,6 @@ export const analytics = async (req, res) => {
       return d >= start && d <= end;
     };
 
-    // Helper function to group by day & month
     const getCounts = (bookings) => {
       const daily = {};
       const monthly = {};
@@ -266,19 +260,16 @@ export const analytics = async (req, res) => {
       return { daily, monthly };
     };
 
-    // Fetch and filter seat bookings
     const seatingSlots = await SeatingSlot.find();
     const seatBookings = seatingSlots.flatMap(slot =>
       slot.bookings.filter(b => dateInRange(b.date))
     );
 
-    // Fetch and filter parking bookings
     const parkingSlots = await ParkingSlot.find();
     const parkingBookings = parkingSlots.flatMap(slot =>
       slot.bookings.filter(b => dateInRange(b.date))
     );
 
-    // Generate daily & monthly counts
     const seatCounts = getCounts(seatBookings);
     const parkingCounts = getCounts(parkingBookings);
 
@@ -358,99 +349,14 @@ export const userBookings = async (req, res) => {
   }
 };
 
-export const recentBookings = async (req, res) => {
-  try {
-    // Fetch seating members (which contain bookings)
-    const seatingMembers = await SeatingSlot.find();
-    const parkingSlots = await ParkingSlot.find();
-
-    // Create comprehensive maps for efficient lookup
-    const users = await User.find().select('username teamId firstName lastName');
-    const teams = await Team.find().select('teamId teamName color');
-    
-    // Create team map by teamId
-    const teamMap = {};
-    teams.forEach(team => {
-      teamMap[team.teamId] = {
-        teamName: team.teamName,
-        color: team.color
-      };
-    });
-
-    // Create user-team map by username
-    const userTeamMap = {};
-    users.forEach(user => {
-      const teamInfo = teamMap[user.teamId];
-      userTeamMap[user.username] = {
-        teamName: teamInfo?.teamName || 'No Team',
-        teamColor: teamInfo?.color || '#6B7280',
-        fullName: `${user.firstName} ${user.lastName}`,
-        teamId: user.teamId || null
-      };
-    });
-
-    // Process seating bookings
-    const seatingData = seatingMembers.flatMap(member =>
-      member.bookings.map(booking => ({
-        slotType: 'seating',
-        slotNumber: booking.seatId,
-        floor: booking.floor,
-        booking: {
-          ...booking.toObject(),
-          userName: member.userName,
-          team: member.teamName || 'No Team',
-          teamColor: member.teamColor || '#6B7280',
-          teamId: member.teamId || null
-        }
-      }))
-    );
-
-    // Process parking bookings
-    const parkingData = parkingSlots.flatMap(slot =>
-      slot.bookings.map(booking => {
-        const userInfo = userTeamMap[booking.userName] || {
-          teamName: 'No Team',
-          teamColor: '#6B7280',
-          fullName: booking.userName,
-          teamId: null
-        };
-
-        return {
-          slotType: 'parking',
-          slotNumber: slot.slotNumber,
-          floor: slot.floor,
-          booking: {
-            ...booking.toObject(),
-            team: userInfo.teamName,
-            teamColor: userInfo.teamColor,
-            teamId: userInfo.teamId
-          }
-        };
-      })
-    );
-
-    const allBookings = [...seatingData, ...parkingData]
-      .sort((a, b) => new Date(b.booking.date) - new Date(a.booking.date))
-      .slice(0, 10);
-
-    res.json(allBookings);
-  } catch (error) {
-    console.error('Error fetching recent bookings:', error);
-    res.status(500).json({ error: 'Failed to fetch recent bookings' });
-  }
-};
-
-// export const allBookings = async (req, res) => {
+// export const recentBookings = async (req, res) => {
 //   try {
-//     // Fetch seating slots (which are actually member booking records)
 //     const seatingMembers = await SeatingSlot.find();
 //     const parkingSlots = await ParkingSlot.find();
 
-//     // Create comprehensive maps for efficient lookup
 //     const users = await User.find().select('username teamId firstName lastName');
 //     const teams = await Team.find().select('teamId teamName color');
     
-//     // Create team map by teamId
 //     const teamMap = {};
 //     teams.forEach(team => {
 //       teamMap[team.teamId] = {
@@ -459,7 +365,6 @@ export const recentBookings = async (req, res) => {
 //       };
 //     });
 
-//     // Create user-team map by username
 //     const userTeamMap = {};
 //     users.forEach(user => {
 //       const teamInfo = teamMap[user.teamId];
@@ -471,49 +376,22 @@ export const recentBookings = async (req, res) => {
 //       };
 //     });
 
-//     // Process seating bookings - using the correct structure
-//     const formattedSeatBookings = seatingMembers.flatMap(member =>
-//       member.bookings.map(booking => {
-//         // Use team info from the member document first, then fall back to userTeamMap
-//         const memberTeamInfo = {
-//           teamName: member.teamName || 'No Team',
+//     const seatingData = seatingMembers.flatMap(member =>
+//       member.bookings.map(booking => ({
+//         slotType: 'seating',
+//         slotNumber: booking.seatId,
+//         floor: booking.floor,
+//         booking: {
+//           ...booking.toObject(),
+//           userName: member.userName,
+//           team: member.teamName || 'No Team',
 //           teamColor: member.teamColor || '#6B7280',
 //           teamId: member.teamId || null
-//         };
-
-//         const userInfo = userTeamMap[member.userName] || {
-//           teamName: memberTeamInfo.teamName,
-//           teamColor: memberTeamInfo.teamColor,
-//           fullName: member.userName,
-//           teamId: memberTeamInfo.teamId
-//         };
-
-//         return {
-//           id: `seat-${member._id}-${booking.date}-${booking.entryTime}`,
-//           _id: `seat-${member._id}-${booking.bookingId}`,
-//           user: { 
-//             name: member.userName,
-//             username: member.userName,
-//             fullName: userInfo.fullName
-//           },
-//           slot: { 
-//             slotNumber: booking.seatId, 
-//             floor: booking.floor 
-//           },
-//           type: "seat",
-//           date: booking.date,
-//           entryTime: booking.entryTime,
-//           exitTime: booking.exitTime,
-//           createdAt: new Date(booking.date),
-//           team: memberTeamInfo.teamName,
-//           teamId: memberTeamInfo.teamId,
-//           teamColor: memberTeamInfo.teamColor
-//         };
-//       })
+//         }
+//       }))
 //     );
 
-//     // Process parking bookings with proper team information
-//     const formattedParkingBookings = parkingSlots.flatMap(slot =>
+//     const parkingData = parkingSlots.flatMap(slot =>
 //       slot.bookings.map(booking => {
 //         const userInfo = userTeamMap[booking.userName] || {
 //           teamName: 'No Team',
@@ -523,39 +401,115 @@ export const recentBookings = async (req, res) => {
 //         };
 
 //         return {
-//           id: `parking-${slot._id}-${booking.date}-${booking.entryTime}`,
-//           _id: `parking-${slot._id}-${booking.date}-${booking.entryTime}`,
-//           user: { 
-//             name: booking.userName,
-//             username: booking.userName,
-//             fullName: userInfo.fullName
-//           },
-//           slot: { 
-//             slotNumber: slot.slotNumber, 
-//             floor: slot.floor 
-//           },
-//           type: "parking",
-//           date: booking.date,
-//           entryTime: booking.entryTime,
-//           exitTime: booking.exitTime,
-//           createdAt: new Date(booking.date),
-//           team: userInfo.teamName,
-//           teamId: userInfo.teamId,
-//           teamColor: userInfo.teamColor
+//           slotType: 'parking',
+//           slotNumber: slot.slotNumber,
+//           floor: slot.floor,
+//           booking: {
+//             ...booking.toObject(),
+//             team: userInfo.teamName,
+//             teamColor: userInfo.teamColor,
+//             teamId: userInfo.teamId
+//           }
 //         };
 //       })
 //     );
 
-//     // Combine and sort all bookings by date (most recent first)
-//     const allBookings = [...formattedSeatBookings, ...formattedParkingBookings]
-//       .sort((a, b) => new Date(b.date) - new Date(a.date));
+//     const allBookings = [...seatingData, ...parkingData]
+//       .sort((a, b) => new Date(b.booking.date) - new Date(a.booking.date))
+//       .slice(0, 10);
 
 //     res.json(allBookings);
 //   } catch (error) {
-//     console.error('Detailed error in all-bookings endpoint:', error);
-//     res.status(500).json({ error: 'Failed to fetch bookings' });
+//     console.error('Error fetching recent bookings:', error);
+//     res.status(500).json({ error: 'Failed to fetch recent bookings' });
 //   }
 // };
+export const recentBookings = async (req, res) => {
+  try {
+    const seatingMembers = await SeatingSlot.find();
+    const parkingSlots = await ParkingSlot.find();
+    const users = await User.find().select('username teamId firstName lastName');
+    const teams = await Team.find().select('teamId teamName color');
+    
+    const teamMap = {};
+    teams.forEach(team => {
+      teamMap[team.teamId] = {
+        teamName: team.teamName,
+        color: team.color
+      };
+    });
+
+    const userTeamMap = {};
+    users.forEach(user => {
+      const teamInfo = teamMap[user.teamId] || { teamName: 'No Team', color: '#6B7280' };
+      userTeamMap[user.username] = {
+        teamName: teamInfo.teamName,
+        teamColor: teamInfo.color,
+        fullName: `${user.firstName} ${user.lastName}`,
+        teamId: user.teamId || null
+      };
+    });
+
+    const today = new Date('2025-07-20T00:00:00+05:30');
+    const seatingData = seatingMembers.flatMap(member =>
+      member.bookings
+        .filter(booking => {
+          const bookingDate = new Date(booking.date);
+          return booking.date && !isNaN(bookingDate) && bookingDate >= today;
+        })
+        .map(booking => ({
+          slotType: 'seating',
+          slotNumber: booking.seatId,
+          floor: booking.floor,
+          booking: {
+            ...booking.toObject(),
+            userName: member.userName,
+            team: member.teamName || 'No Team',
+            teamColor: member.teamColor || '#6B7280',
+            teamId: member.teamId || null,
+            createdAt: booking.bookedAt || new Date()
+          }
+        }))
+    );
+
+    const parkingData = parkingSlots.flatMap(slot =>
+      slot.bookings
+        .filter(booking => {
+          const bookingDate = new Date(booking.date);
+          return booking.date && !isNaN(bookingDate) && bookingDate >= today;
+        })
+        .map(booking => {
+          const userInfo = userTeamMap[booking.userName] || {
+            teamName: 'No Team',
+            teamColor: '#6B7280',
+            fullName: booking.userName,
+            teamId: null
+          };
+          return {
+            slotType: 'parking',
+            slotNumber: slot.slotNumber,
+            floor: slot.floor,
+            booking: {
+              ...booking.toObject(),
+              team: userInfo.teamName,
+              teamColor: userInfo.teamColor,
+              teamId: userInfo.teamId,
+              createdAt: booking.createdAt || new Date()
+            }
+          };
+        })
+    );
+
+    const allBookings = [...seatingData, ...parkingData]
+      .sort((a, b) => new Date(a.booking.date) - new Date(b.booking.date))
+      .slice(0, 10);
+
+    res.json(allBookings);
+  } catch (error) {
+    console.error('Error fetching recent bookings:', error);
+    res.status(500).json({ error: 'Failed to fetch recent bookings' });
+  }
+};
 
 export const allBookings = async (req, res) => {
   try {
@@ -659,12 +613,11 @@ export const allBookings = async (req, res) => {
 
 export const getTeamStats = async (req, res) => {
   try {
-    const { teamName } = req.query;
+    const { teamName, startDate, endDate } = req.query;
     if (!teamName) return res.status(400).json({ message: 'Team name is required' });
 
     console.log('Getting team stats for:', teamName);
 
-    // Find the team
     const team = await Team.findOne({ 
       teamName: new RegExp(`^${teamName.trim()}$`, 'i') 
     });
@@ -676,65 +629,42 @@ export const getTeamStats = async (req, res) => {
 
     console.log('Found team:', team.teamName, 'ID:', team.teamId);
 
-    // Find team members
     const members = await User.find({ teamId: team.teamId });
     const memberUsernames = members.map(m => m.username);
 
     console.log('Team members:', memberUsernames);
 
-    // Calculate previous month
-    const now = new Date();
-    const firstDayPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const start = startDate ? new Date(startDate) : new Date('2000-01-01');
+    const end = endDate ? new Date(endDate) : new Date('2100-01-01');
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
 
-    console.log('Date range:', firstDayPrevMonth.toISOString(), 'to', lastDayPrevMonth.toISOString());
+    console.log('Date range:', start.toISOString(), 'to', end.toISOString());
 
-    // Helper to count bookings in a slot array
-    const countBookingsForUser = (slots, username) => {
-      let count = 0;
-      for (const slot of slots) {
-        for (const booking of slot.bookings) {
-          if (
-            booking.userName === username &&
-            booking.date >= firstDayPrevMonth.toISOString().slice(0, 10) &&
-            booking.date <= lastDayPrevMonth.toISOString().slice(0, 10)
-          ) {
-            count++;
-          }
-        }
-      }
-      return count;
+    const dateInRange = (date) => {
+      const d = new Date(date);
+      return d >= start && d <= end;
     };
 
-    // Helper to count bookings in seating members array
-    const countSeatingBookingsForUser = (seatingMembers, username) => {
-      let count = 0;
-      for (const member of seatingMembers) {
-        if (member.userName === username) {
-          for (const booking of member.bookings) {
-            if (
-              booking.date >= firstDayPrevMonth.toISOString().slice(0, 10) &&
-              booking.date <= lastDayPrevMonth.toISOString().slice(0, 10)
-            ) {
-              count++;
-            }
-          }
-        }
-      }
-      return count;
-    };
-
-    // Fetch all seating and parking slots
     const [seatingMembers, parkingSlots] = await Promise.all([
       SeatingSlot.find({}),
       ParkingSlot.find({})
     ]);
 
-    // Calculate stats for each member
     const memberStats = await Promise.all(
       members.map(async (user) => {
-        const seatBookings = countSeatingBookingsForUser(seatingMembers, user.username);
-        const parkingBookings = countBookingsForUser(parkingSlots, user.username);
+        const seatBookings = seatingMembers
+          .filter(member => member.userName.toLowerCase() === user.username.toLowerCase())
+          .flatMap(member => member.bookings)
+          .filter(booking => dateInRange(booking.date)).length;
+
+        const parkingBookings = parkingSlots
+          .flatMap(slot => slot.bookings)
+          .filter(booking => 
+            (booking.userName.toLowerCase() === user.username.toLowerCase()) && 
+            dateInRange(booking.date)
+          ).length;
+
         const totalBookings = seatBookings + parkingBookings;
 
         return {
@@ -749,7 +679,6 @@ export const getTeamStats = async (req, res) => {
       })
     );
 
-    // Calculate team totals
     const totalSeatBookings = memberStats.reduce((sum, member) => sum + member.seatCount, 0);
     const totalParkingBookings = memberStats.reduce((sum, member) => sum + member.parkingCount, 0);
     const totalTeamBookings = totalSeatBookings + totalParkingBookings;
@@ -774,7 +703,6 @@ export const getTeamStats = async (req, res) => {
   }
 };
 
-// NEW: Autocomplete endpoints
 export const getTeamSuggestions = async (req, res) => {
   try {
     const { query } = req.query;
@@ -783,8 +711,18 @@ export const getTeamSuggestions = async (req, res) => {
       return res.json([]);
     }
 
+    // Normalize query: remove "team" prefix, trim spaces, and convert to lowercase
+    const normalizedQuery = query
+      .replace(/^team\s+/i, '') // Remove "team" or "Team" prefix
+      .trim()
+      .toLowerCase();
+
+    if (!normalizedQuery) {
+      return res.json([]);
+    }
+
     const teams = await Team.find({
-      teamName: new RegExp(query, 'i')
+      teamName: new RegExp(normalizedQuery, 'i')
     })
     .select('teamName teamId')
     .limit(10);
@@ -802,14 +740,15 @@ export const getTeamSuggestions = async (req, res) => {
   }
 };
 
+
+
+// In reportController.js
 export const getUserSuggestions = async (req, res) => {
   try {
     const { query } = req.query;
-    
     if (!query || query.length < 1) {
       return res.json([]);
     }
-
     const users = await User.find({
       $or: [
         { username: new RegExp(query, 'i') },
@@ -817,17 +756,16 @@ export const getUserSuggestions = async (req, res) => {
         { lastName: new RegExp(query, 'i') }
       ]
     })
-    .select('username firstName lastName teamId')
-    .populate('teamId', 'teamName')
-    .limit(10);
-
+      .select('username firstName lastName teamId _id')
+      .populate('teamId', 'teamName')
+      .limit(10);
     const suggestions = users.map(user => ({
-      value: user.username,
-      label: `${user.username} - ${user.firstName} ${user.lastName}`,
+      value: `${user.firstName} ${user.lastName}`, // Use full name
+      label: `${user.firstName} ${user.lastName}`,
       name: `${user.firstName} ${user.lastName}`,
-      team: user.teamId?.teamName || 'No Team'
+      team: user.teamId?.teamName || 'No Team',
+      id: user._id.toString()
     }));
-
     res.json(suggestions);
   } catch (error) {
     console.error('Error getting user suggestions:', error);

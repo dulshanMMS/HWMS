@@ -62,11 +62,11 @@ app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
-<<<<<<< HEAD
+
 app.use("/api/ratings", ratingRoutes); // New rating routes
-=======
+
 app.use("/api/announcements", announcementRoutes);
->>>>>>> origin/dev2
+
 
 // Test Routes
 app.get("/", (req, res) => {
