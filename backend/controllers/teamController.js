@@ -48,3 +48,66 @@ export const getTeamMembers = async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching team members' });
   }
 };
+
+// GET: Team-wise member counts
+export const getTeamMemberCounts = async (req, res) => {
+  try {
+    const counts = await User.aggregate([
+      {
+        $group: {
+          _id: "$teamId",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const result = {};
+    counts.forEach(item => {
+      if (item._id) {
+        result[item._id] = item.count;
+      }
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error fetching member counts:', error);
+    res.status(500).json({ message: 'Server error while fetching member counts' });
+  }
+};
+
+// PUT: Update a team's name
+export const updateTeam = async (req, res) => {
+  const { id } = req.params;
+  const { teamName } = req.body;
+
+  if (!teamName) {
+    return res.status(400).json({ message: 'Team name is required' });
+  }
+
+  try {
+    const updated = await Team.findByIdAndUpdate(id, { teamName }, { new: true });
+    if (!updated) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+    res.status(200).json(updated);
+  } catch (err) {
+    console.error("Error updating team:", err);
+    res.status(500).json({ message: "Server error while updating team" });
+  }
+};
+
+// DELETE: Remove a team by ID
+export const deleteTeam = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deleted = await Team.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    res.status(200).json({ message: "Team deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting team:", err);
+    res.status(500).json({ message: "Server error while deleting team" });
+  }
+};
