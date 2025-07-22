@@ -55,7 +55,7 @@ import {
   getAdminUnreadCount,
   markAsRead,
   markAsUnread,
-  markAllAsRead,
+  // markAllAsRead,
   deleteNotification,
   sendBulkNotification,
   createBookingNotification,
@@ -72,7 +72,7 @@ router.get('/user/own', verifyToken, getUserOwnNotifications);
 router.get('/unread-count', verifyToken, getUnreadNotificationCount);
 router.put('/:id/mark-read', verifyToken, markAsRead);
 router.put('/:id/mark-unread', verifyToken, markAsUnread);
-router.put('/mark-all-read', verifyToken, markAllAsRead);
+// router.put('/mark-all-read', verifyToken, markAllAsRead);
 router.delete('/:id', verifyToken, deleteNotification);
 
 // Admin routes

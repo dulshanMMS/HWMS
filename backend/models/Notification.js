@@ -30,11 +30,18 @@ const notificationSchema = new mongoose.Schema({
     default: 'info',
     index: true
   },
+  // bookingId: {
+  //   type: mongoose.Schema.Types.ObjectId,
+  //   //ref: 'Booking',
+  //   index: true,
+  //   sparse: true
+
   bookingId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking',
+    type: String, // Changed from ObjectId to String
     index: true,
-    sparse: true
+    sparse: true,
+    required: false // Explicitly allow null/undefined
+
   },
   read: {
     type: Boolean,
