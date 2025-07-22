@@ -85,6 +85,12 @@ export const updateTeam = async (req, res) => {
   }
 
   try {
+    // Check for duplicate team name (excluding self)
+    const existing = await Team.findOne({ teamName, _id: { $ne: id } });
+    if (existing) {
+      return res.status(409).json({ message: 'Team name already exists' });
+    }
+    
     const updated = await Team.findByIdAndUpdate(id, { teamName }, { new: true });
     if (!updated) {
       return res.status(404).json({ message: 'Team not found' });
