@@ -11,10 +11,10 @@ import sendEmail from './emailService.js';
 
 // Unread count (UPDATED to use recipients array)
 export async function getUnreadNotificationCount(userId) {
-  return Notification.countDocuments({ 
-    recipients: { $in: [userId] }, 
-    read: false, 
-    deleted: false 
+  return Notification.countDocuments({
+    recipients: { $in: [userId] },
+    read: false,
+    deleted: false
   });
 }
 
@@ -26,20 +26,20 @@ export async function getAdminUnreadCount() {
 export async function markAsRead(notificationId, userId) {
   const notification = await Notification.findById(notificationId);
   if (!notification) throw new Error('Notification not found');
-  
+
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
-  
+
   notification.read = true;
   return notification.save();
 }
 
 export async function markAllAsRead(userId) {
-  return Notification.updateMany({ 
-    recipients: { $in: [userId] }, 
-    read: false, 
-    deleted: false 
+  return Notification.updateMany({
+    recipients: { $in: [userId] },
+    read: false,
+    deleted: false
   }, { read: true });
 }
 
@@ -47,11 +47,11 @@ export async function markAllAsRead(userId) {
 export async function deleteNotification(notificationId, userId) {
   const notification = await Notification.findById(notificationId);
   if (!notification) throw new Error('Notification not found');
-  
+
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
-  
+
   notification.deleted = true;
   return notification.save();
 }
@@ -60,13 +60,13 @@ export async function deleteNotification(notificationId, userId) {
 // export async function getNotifications(page = 1, limit = 10) {
 //   const skip = (page - 1) * limit;
 //   const total = await Notification.countDocuments({ deleted: false });
-  
+
 //   const notifications = await Notification.find({ deleted: false })
 //     .sort({ createdAt: -1 })
 //     .skip(skip)
 //     .limit(parseInt(limit))
 //     .populate('bookingId', 'type details date');
-    
+
 //   return {
 //     notifications,
 //     total,
@@ -83,11 +83,11 @@ export async function getNotifications(page = 1, limit = 10, userId) {
     const query = userId
       ? { deleted: false, $or: [{ recipients: userId }, { type: 'important' }] }
       : { deleted: false, type: 'important' };
-    
+
     console.log('Query:', JSON.stringify(query));
     const total = await Notification.countDocuments(query);
     console.log('Total notifications:', total);
-    
+
     const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -97,9 +97,9 @@ export async function getNotifications(page = 1, limit = 10, userId) {
         select: 'type details date',
         strictPopulate: false // Prevent population errors
       });
-    
+
     console.log('Fetched notifications:', notifications.length);
-    
+
     return {
       notifications,
       total,
@@ -118,12 +118,12 @@ export async function getNotifications(page = 1, limit = 10, userId) {
 export async function sendNotification({ recipients, title, message, type, emailSubject }) {
   // Ensure recipients is an array
   const recipientArray = Array.isArray(recipients) ? recipients : [recipients];
-  
-  const notification = new Notification({ 
-    recipients: recipientArray, 
-    title, 
-    message, 
-    type 
+
+  const notification = new Notification({
+    recipients: recipientArray,
+    title,
+    message,
+    type
   });
   await notification.save();
 
@@ -173,7 +173,7 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
 // async function createParkingBookingNotifications(parkingSlot, latestBooking) {
 //   try {
 //     console.log(`🚗 Processing parking booking: ${latestBooking.userName} -> Slot ${parkingSlot.slotNumber}`);
-    
+
 //     // Find user by username
 //     const user = await User.findOne({ username: latestBooking.userName });
 //     if (!user) {
@@ -183,7 +183,7 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
 
 //     // Check user's notification preferences
 //     const preferences = user.notificationPreferences || {};
-    
+
 //     // Create notification for the user
 //     const userNotification = new Notification({
 //       recipients: [user._id],
@@ -192,7 +192,7 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
 //       type: 'parking_booking',
 //       bookingId: null // You might want to create a Booking model reference
 //     });
-    
+
 //     await userNotification.save();
 //     console.log(`✅ User notification created for ${user.username}`);
 
@@ -213,7 +213,7 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
 //     // Create notifications for all admins
 //     const admins = await User.find({ role: 'admin' });
 //     const adminNotifications = [];
-    
+
 //     for (const admin of admins) {
 //       const adminNotification = new Notification({
 //         recipients: [admin._id],
@@ -221,7 +221,7 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
 //         message: `${user.firstName} ${user.lastName} (${user.username}) has booked parking slot ${parkingSlot.slotNumber} on Floor ${parkingSlot.floor} for ${latestBooking.date} from ${latestBooking.entryTime} to ${latestBooking.exitTime}`,
 //         type: 'important'
 //       });
-      
+
 //       await adminNotification.save();
 //       adminNotifications.push(adminNotification);
 
@@ -243,7 +243,7 @@ export async function sendBulkNotifications({ recipients, title, message, type, 
 
 //     console.log(`✅ Created parking notifications: 1 user, ${adminNotifications.length} admins`);
 //     return { userNotification, adminNotifications };
-    
+
 //   } catch (error) {
 //     console.error('❌ Error creating parking booking notifications:', error);
 //     throw error;
@@ -328,7 +328,7 @@ async function createParkingBookingNotifications(parkingSlot, latestBooking) {
 // async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
 //   try {
 //     console.log(`🪑 Processing seating booking: ${seatingRecord.userName} -> Seat ${latestBooking.seatId}`);
-    
+
 //     // Find user by username
 //     const user = await User.findOne({ username: seatingRecord.userName });
 //     if (!user) {
@@ -338,7 +338,7 @@ async function createParkingBookingNotifications(parkingSlot, latestBooking) {
 
 //     // Check user's notification preferences
 //     const preferences = user.notificationPreferences || {};
-    
+
 //     // Format date for display
 //     const bookingDate = new Date(latestBooking.date).toLocaleDateString();
 
@@ -350,7 +350,7 @@ async function createParkingBookingNotifications(parkingSlot, latestBooking) {
 //       type: 'seat_booking',
 //       bookingId: null // You might want to create a Booking model reference
 //     });
-    
+
 //     await userNotification.save();
 //     console.log(`✅ User notification created for ${user.username}`);
 
@@ -371,7 +371,7 @@ async function createParkingBookingNotifications(parkingSlot, latestBooking) {
 //     // Create notifications for all admins
 //     const admins = await User.find({ role: 'admin' });
 //     const adminNotifications = [];
-    
+
 //     for (const admin of admins) {
 //       const adminNotification = new Notification({
 //         recipients: [admin._id],
@@ -379,7 +379,7 @@ async function createParkingBookingNotifications(parkingSlot, latestBooking) {
 //         message: `${user.firstName} ${user.lastName} (${user.username}) has booked seat ${latestBooking.seatId} on Floor ${latestBooking.floor} for ${bookingDate} from ${latestBooking.entryTime} to ${latestBooking.exitTime}`,
 //         type: 'important'
 //       });
-      
+
 //       await adminNotification.save();
 //       adminNotifications.push(adminNotification);
 
@@ -401,7 +401,7 @@ async function createParkingBookingNotifications(parkingSlot, latestBooking) {
 
 //     console.log(`✅ Created seating notifications: 1 user, ${adminNotifications.length} admins`);
 //     return { userNotification, adminNotifications };
-    
+
 //   } catch (error) {
 //     console.error('❌ Error creating seating booking notifications:', error);
 //     throw error;
@@ -512,22 +512,22 @@ async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
 //   parkingStream.on('change', async (change) => {
 //     try {
 //       console.log('🚗 ParkingSlot change detected:', change.operationType);
-      
+
 //       if (change.operationType === 'update' || change.operationType === 'insert') {
 //         const slotId = change.documentKey._id;
-        
+
 //         // Get the current document
 //         const parkingSlot = await ParkingSlot.findById(slotId);
-        
+
 //         if (parkingSlot && parkingSlot.bookings.length > 0) {
 //           // Get the latest booking (last one in the array)
 //           const latestBooking = parkingSlot.bookings[parkingSlot.bookings.length - 1];
-          
+
 //           // Check if this is a new booking by comparing with previous state
 //           const isNewBooking = change.operationType === 'insert' || 
 //                               (change.fullDocumentBeforeChange && 
 //                                change.fullDocumentBeforeChange.bookings.length < parkingSlot.bookings.length);
-          
+
 //           if (isNewBooking) {
 //             console.log('📍 New parking booking detected, creating notifications...');
 //             await createParkingBookingNotifications(parkingSlot, latestBooking);
@@ -563,22 +563,22 @@ async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
 //   seatingStream.on('change', async (change) => {
 //     try {
 //       console.log('🪑 SeatingSlots change detected:', change.operationType);
-      
+
 //       if (change.operationType === 'update' || change.operationType === 'insert') {
 //         const recordId = change.documentKey._id;
-        
+
 //         // Get the current document
 //         const seatingRecord = await SeatingSlots.findById(recordId);
-        
+
 //         if (seatingRecord && seatingRecord.bookings.length > 0) {
 //           // Get the latest booking (last one in the array)
 //           const latestBooking = seatingRecord.bookings[seatingRecord.bookings.length - 1];
-          
+
 //           // Check if this is a new booking
 //           const isNewBooking = change.operationType === 'insert' || 
 //                               (change.fullDocumentBeforeChange && 
 //                                change.fullDocumentBeforeChange.bookings.length < seatingRecord.bookings.length);
-          
+
 //           if (isNewBooking) {
 //             console.log('📍 New seating booking detected, creating notifications...');
 //             await createSeatingBookingNotifications(seatingRecord, latestBooking);
@@ -621,94 +621,94 @@ async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
 //   return { parkingStream, seatingStream };
 // }
 
-export function listenForBookingChanges() {
-  console.log('🔄 Starting enhanced database change listeners...');
+// export function listenForBookingChanges() {
+//   console.log('🔄 Starting enhanced database change listeners...');
 
-  // ========== PARKING SLOT LISTENER ==========
-  const parkingStream = ParkingSlot.watch([
-    {
-      $match: { $or: [{ operationType: 'insert' }, { operationType: 'update' }] }
-    }
-  ], { fullDocument: 'updateLookup' });
+//   // ========== PARKING SLOT LISTENER ==========
+//   const parkingStream = ParkingSlot.watch([
+//     {
+//       $match: { $or: [{ operationType: 'insert' }, { operationType: 'update' }] }
+//     }
+//   ], { fullDocument: 'updateLookup' });
 
-  parkingStream.on('change', async (change) => {
-    try {
-      console.log('🚗 ParkingSlot change event received (all events):', JSON.stringify(change));
-      if (change.operationType === 'update' || change.operationType === 'insert') {
-        const slotId = change.documentKey._id;
-        const parkingSlot = await ParkingSlot.findById(slotId);
-        console.log('🚗 ParkingSlot fetched:', parkingSlot ? parkingSlot.bookings.length : 'null');
-        
-        if (parkingSlot) {
-          const previousLength = change.fullDocumentBeforeChange ? change.fullDocumentBeforeChange.bookings.length : 0;
-          const currentLength = parkingSlot.bookings.length;
-          console.log('🚗 Bookings: previous=', previousLength, 'current=', currentLength);
-          
-          if (currentLength > previousLength) {
-            const latestBooking = parkingSlot.bookings[parkingSlot.bookings.length - 1];
-            console.log('📍 New parking booking detected, creating notifications...', latestBooking);
-            await createParkingBookingNotifications(parkingSlot, latestBooking);
-          } else {
-            console.log('🚗 No new booking detected, update details:', JSON.stringify(change.updateDescription));
-          }
-        } else {
-          console.log('🚗 Parking slot not found.');
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error processing parking slot change:', error);
-    }
-  });
+//   parkingStream.on('change', async (change) => {
+//     try {
+//       console.log('🚗 ParkingSlot change event received (all events):', JSON.stringify(change));
+//       if (change.operationType === 'update' || change.operationType === 'insert') {
+//         const slotId = change.documentKey._id;
+//         const parkingSlot = await ParkingSlot.findById(slotId);
+//         console.log('🚗 ParkingSlot fetched:', parkingSlot ? parkingSlot.bookings.length : 'null');
 
-  // ========== SEATING SLOT LISTENER ==========
-  const seatingStream = SeatingSlots.watch([
-    {
-      $match: { $or: [{ operationType: 'insert' }, { operationType: 'update' }] }
-    }
-  ], { fullDocument: 'updateLookup' });
+//         if (parkingSlot) {
+//           const previousLength = change.fullDocumentBeforeChange ? change.fullDocumentBeforeChange.bookings.length : 0;
+//           const currentLength = parkingSlot.bookings.length;
+//           console.log('🚗 Bookings: previous=', previousLength, 'current=', currentLength);
 
-  seatingStream.on('change', async (change) => {
-    try {
-      console.log('🪑 SeatingSlots change event received (all events):', JSON.stringify(change));
-      if (change.operationType === 'update' || change.operationType === 'insert') {
-        const recordId = change.documentKey._id;
-        const seatingRecord = await SeatingSlots.findById(recordId);
-        console.log('🪑 SeatingRecord fetched:', seatingRecord ? seatingRecord.bookings.length : 'null');
-        
-        if (seatingRecord) {
-          const previousLength = change.fullDocumentBeforeChange ? change.fullDocumentBeforeChange.bookings.length : 0;
-          const currentLength = seatingRecord.bookings.length;
-          console.log('🪑 Bookings: previous=', previousLength, 'current=', currentLength);
-          
-          if (currentLength > previousLength) {
-            const latestBooking = seatingRecord.bookings[seatingRecord.bookings.length - 1];
-            console.log('📍 New seating booking detected, creating notifications...', latestBooking);
-            await createSeatingBookingNotifications(seatingRecord, latestBooking);
-          } else {
-            console.log('🪑 No new booking detected, update details:', JSON.stringify(change.updateDescription));
-          }
-        } else {
-          console.log('🪑 Seating record not found.');
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error processing seating slot change:', error);
-    }
-  });
+//           if (currentLength > previousLength) {
+//             const latestBooking = parkingSlot.bookings[parkingSlot.bookings.length - 1];
+//             console.log('📍 New parking booking detected, creating notifications...', latestBooking);
+//             await createParkingBookingNotifications(parkingSlot, latestBooking);
+//           } else {
+//             console.log('🚗 No new booking detected, update details:', JSON.stringify(change.updateDescription));
+//           }
+//         } else {
+//           console.log('🚗 Parking slot not found.');
+//         }
+//       }
+//     } catch (error) {
+//       console.error('❌ Error processing parking slot change:', error);
+//     }
+//   });
 
-  // ... (error handling and shutdown remain unchanged)
-}
+//   // ========== SEATING SLOT LISTENER ==========
+//   const seatingStream = SeatingSlots.watch([
+//     {
+//       $match: { $or: [{ operationType: 'insert' }, { operationType: 'update' }] }
+//     }
+//   ], { fullDocument: 'updateLookup' });
+
+//   seatingStream.on('change', async (change) => {
+//     try {
+//       console.log('🪑 SeatingSlots change event received (all events):', JSON.stringify(change));
+//       if (change.operationType === 'update' || change.operationType === 'insert') {
+//         const recordId = change.documentKey._id;
+//         const seatingRecord = await SeatingSlots.findById(recordId);
+//         console.log('🪑 SeatingRecord fetched:', seatingRecord ? seatingRecord.bookings.length : 'null');
+
+//         if (seatingRecord) {
+//           const previousLength = change.fullDocumentBeforeChange ? change.fullDocumentBeforeChange.bookings.length : 0;
+//           const currentLength = seatingRecord.bookings.length;
+//           console.log('🪑 Bookings: previous=', previousLength, 'current=', currentLength);
+
+//           if (currentLength > previousLength) {
+//             const latestBooking = seatingRecord.bookings[seatingRecord.bookings.length - 1];
+//             console.log('📍 New seating booking detected, creating notifications...', latestBooking);
+//             await createSeatingBookingNotifications(seatingRecord, latestBooking);
+//           } else {
+//             console.log('🪑 No new booking detected, update details:', JSON.stringify(change.updateDescription));
+//           }
+//         } else {
+//           console.log('🪑 Seating record not found.');
+//         }
+//       }
+//     } catch (error) {
+//       console.error('❌ Error processing seating slot change:', error);
+//     }
+//   });
+
+//   // ... (error handling and shutdown remain unchanged)
+// }
 
 // Notification Preferences (UPDATED to use recipients array)
 export async function getNotificationPreferences(userId) {
   try {
     const user = await User.findById(userId).select('notificationPreferences');
-    
+
     // Check if user exists
     if (!user) {
       throw new Error('User not found');
     }
-    
+
     return user.notificationPreferences || {
       email: true,
       push: true,
@@ -729,11 +729,11 @@ export async function updateNotificationPreferences(userId, preferences) {
       { notificationPreferences: preferences },
       { new: true }
     ).select('notificationPreferences');
-    
+
     if (!user) {
       throw new Error('User not found');
     }
-    
+
     return user.notificationPreferences;
   } catch (error) {
     console.error('Error in updateNotificationPreferences service:', error);
@@ -764,7 +764,7 @@ export async function createBookingNotifications(type, bookingRecord, latestBook
 export async function createCancellationNotifications({ userId, slotNumber, floor, type, date, bookingId }) {
   try {
     console.log(`🚫 Creating cancellation notifications for ${type} booking`);
-    
+
     // Find the user
     const user = await User.findById(userId);
     if (!user) {
@@ -773,7 +773,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
 
     // Check user's notification preferences
     const preferences = user.notificationPreferences || {};
-    
+
     // Create notification for the user
     const userNotification = new Notification({
       recipients: [user._id],
@@ -782,7 +782,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
       type: `${type}_cancellation`,
       bookingId: bookingId
     });
-    
+
     await userNotification.save();
     console.log(`✅ Cancellation notification created for user ${user.username}`);
 
@@ -803,7 +803,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
     // Create notifications for all admins
     const admins = await User.find({ role: 'admin' });
     const adminNotifications = [];
-    
+
     for (const admin of admins) {
       const adminNotification = new Notification({
         recipients: [admin._id],
@@ -811,7 +811,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
         message: `${user.firstName} ${user.lastName} (${user.username}) has cancelled their ${type === 'parking' ? 'parking slot' : 'seat'} ${slotNumber} on Floor ${floor} booking for ${date}.`,
         type: 'important'
       });
-      
+
       await adminNotification.save();
       adminNotifications.push(adminNotification);
 
@@ -833,7 +833,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
 
     console.log(`✅ Created cancellation notifications: 1 user, ${adminNotifications.length} admins`);
     return { userNotification, adminNotifications };
-    
+
   } catch (error) {
     console.error('❌ Error creating cancellation notifications:', error);
     throw error;

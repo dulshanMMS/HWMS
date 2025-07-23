@@ -3,7 +3,8 @@ import User from '../models/User.js';
 import { Message, Conversation } from '../models/Message.js';
 import Notification from '../models/Notification.js';
 
-const messagingConnectedUsers = new Map();
+// Export the Map so messageController can access it
+export const messagingConnectedUsers = new Map();
 
 export const socketController = {
   handleMessagingEvents: (socket, io) => {
@@ -12,7 +13,7 @@ export const socketController = {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.id).select('-password');
-        
+
         if (user) {
           socket.messagingUserId = user._id.toString();
           socket.messagingUserInfo = {
@@ -22,16 +23,16 @@ export const socketController = {
             lastName: user.lastName,
             profilePhoto: user.profilePhoto
           };
-          
+
           messagingConnectedUsers.set(socket.messagingUserId, {
             socketId: socket.id,
             userInfo: socket.messagingUserInfo,
             lastSeen: new Date()
           });
-          
+
           socket.join(`messaging_user_${socket.messagingUserId}`);
           await socketController.updateMessagingUserOnlineStatus(socket.messagingUserId, true, io);
-          
+
           console.log(`User ${user.username} authenticated for messaging`);
           socket.emit('messagingAuthenticated', { success: true, user: socket.messagingUserInfo });
         }
@@ -45,7 +46,7 @@ export const socketController = {
     socket.on('joinMessagingConversation', async (conversationId) => {
       try {
         if (!socket.messagingUserId) return;
-        
+
         const conversation = await Conversation.findById(conversationId);
         if (conversation && conversation.participants.some(p => p.userId.toString() === socket.messagingUserId)) {
           socket.join(`messaging_conversation_${conversationId}`);
@@ -64,7 +65,7 @@ export const socketController = {
     // Handle typing indicators
     socket.on('messagingTyping', (data) => {
       if (!socket.messagingUserId) return;
-      
+
       socket.to(`messaging_conversation_${data.conversationId}`).emit('userTypingInMessaging', {
         userId: socket.messagingUserId,
         username: socket.messagingUserInfo?.username,
@@ -82,9 +83,9 @@ export const socketController = {
         }
 
         const result = await socketController.handleSendMessage(
-          socket.messagingUserId, 
-          socket.messagingUserInfo, 
-          messageData, 
+          socket.messagingUserId,
+          socket.messagingUserInfo,
+          messageData,
           io
         );
 
@@ -102,9 +103,16 @@ export const socketController = {
     // Handle disconnect for messaging
     socket.on('disconnect', async () => {
       if (socket.messagingUserId) {
+        console.log(`🔴 User ${socket.messagingUserId} disconnecting from messaging...`);
+
+        // Remove from connected users map
         messagingConnectedUsers.delete(socket.messagingUserId);
+
+        // Update status in database and emit to other users
         await socketController.updateMessagingUserOnlineStatus(socket.messagingUserId, false, io);
         await socketController.updateMessagingLastSeen(socket.messagingUserId);
+
+        console.log(`✅ User ${socket.messagingUserId} marked as offline`);
       }
     });
   },
@@ -112,7 +120,7 @@ export const socketController = {
   handleSendMessage: async (userId, userInfo, messageData, io) => {
     try {
       const { conversationId, content, messageType = 'text', replyTo, bookingContext } = messageData;
-      
+
       const conversation = await Conversation.findById(conversationId);
       if (!conversation || !conversation.participants.some(p => p.userId.toString() === userId)) {
         return { success: false, error: 'Access denied to this conversation' };
@@ -152,18 +160,20 @@ export const socketController = {
 
   updateMessagingUserOnlineStatus: async (userId, isOnline, io) => {
     try {
+      // Update the conversation participants
       await Conversation.updateMany(
         { 'participants.userId': userId },
-        { 
-          $set: { 
+        {
+          $set: {
             'participants.$.isOnline': isOnline,
             'participants.$.lastSeen': new Date()
-          } 
+          }
         }
       );
 
+      // Emit status update to all relevant conversations
       const userConversations = await Conversation.find({ 'participants.userId': userId });
-      
+
       userConversations.forEach(conversation => {
         io.to(`messaging_conversation_${conversation._id}`).emit('messagingUserStatusUpdate', {
           userId,
