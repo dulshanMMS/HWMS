@@ -109,7 +109,7 @@
 import express from "express";
 import ParkingSlot from "../models/ParkingSlots.js";
 import verifyToken from "../middleware/authMiddleware.js";
-import { createCancellationNotifications } from "../services/notificationService.js";
+import { createCancellationNotifications } from "../services/notificationService.js"; //Sjay
 
 const router = express.Router();
 
@@ -215,11 +215,11 @@ router.delete("/user/delete", verifyToken, async (req, res) => {
         await slot.save();
         console.log('Booking deleted successfully:', { slotNumber, date, entryTime, exitTime });
 
-        // Generate bookingId for cancellation notification
+        // Generate bookingId for cancellation notification Sjay
         const bookingId = `${slot._id}-${date}-${entryTime}-${userName}`;
         console.log('Generated bookingId:', bookingId);
 
-        // Trigger cancellation notification
+        // Trigger cancellation notification Sjay
         console.log('Triggering cancellation notification for:', { userId, slotNumber, floor: slot.floor, type: "parking", date, bookingId });
         await createCancellationNotifications({
             userId,
