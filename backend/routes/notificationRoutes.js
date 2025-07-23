@@ -5,43 +5,35 @@
 //   getUnreadNotificationCount,
 //   getAdminUnreadCount,
 //   markAsRead,
-//   markAllAsRead,
+//   markAsUnread,
 //   deleteNotification,
 //   sendBulkNotification,
 //   createBookingNotification,
 //   createCancellationNotification,
-  
-// updateNotificationPreferences,
+//   updateNotificationPreferences,
 //   getNotificationPreferences,
 // } from '../controllers/notificationController.js';
-
 // import { verifyToken, authenticateUser, isAdmin } from '../middleware/authMiddleware.js';
+
 // const router = express.Router();
 
 // // User routes
-
 // router.get('/user/own', verifyToken, getUserOwnNotifications);
 // router.get('/unread-count', verifyToken, getUnreadNotificationCount);
 // router.put('/:id/mark-read', verifyToken, markAsRead);
-// router.put('/mark-all-read', verifyToken, markAllAsRead);
+// router.put('/:id/mark-unread', verifyToken, markAsUnread);
 // router.delete('/:id', verifyToken, deleteNotification);
 
 // // Admin routes
-
-// // router.get('/admin/unread-count', verifyToken, getAdminUnreadCount);
-// // router.get('/admin/own', verifyToken, getAdminOwnNotifications);
 // router.get('/admin/unread-count', verifyToken, isAdmin, getAdminUnreadCount);
 // router.get('/admin/own', verifyToken, isAdmin, getAdminOwnNotifications);
-
-// router.post('/send-bulk', verifyToken, sendBulkNotification);
+// router.post('/send-bulk', verifyToken, isAdmin, sendBulkNotification);
 
 // // Booking notification routes
 // router.post('/booking', verifyToken, createBookingNotification);
 // router.post('/cancellation', verifyToken, createCancellationNotification);
 
-
-
-// // Notification preferences routes - using authenticateUser for better user validation
+// // Notification preferences routes
 // router.get('/preferences', authenticateUser, getNotificationPreferences);
 // router.put('/preferences', authenticateUser, updateNotificationPreferences);
 
@@ -55,8 +47,10 @@ import {
   getAdminUnreadCount,
   markAsRead,
   markAsUnread,
-  // markAllAsRead,
+  markAllAsRead,
+  markAllAsUnread,
   deleteNotification,
+  deleteAllNotifications,
   sendBulkNotification,
   createBookingNotification,
   createCancellationNotification,
@@ -72,8 +66,10 @@ router.get('/user/own', verifyToken, getUserOwnNotifications);
 router.get('/unread-count', verifyToken, getUnreadNotificationCount);
 router.put('/:id/mark-read', verifyToken, markAsRead);
 router.put('/:id/mark-unread', verifyToken, markAsUnread);
-// router.put('/mark-all-read', verifyToken, markAllAsRead);
+router.put('/mark-all-read', verifyToken, markAllAsRead);
+router.put('/mark-all-unread', verifyToken, markAllAsUnread);
 router.delete('/:id', verifyToken, deleteNotification);
+router.delete('/delete-all', verifyToken, deleteAllNotifications);
 
 // Admin routes
 router.get('/admin/unread-count', verifyToken, isAdmin, getAdminUnreadCount);

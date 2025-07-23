@@ -57,7 +57,7 @@ router.post("/book-slot", verifyToken, async (req, res) => {
     // Send booking notifications Sjay
     try {
         const latestBooking = slot.bookings[slot.bookings.length - 1];
-        await createBookingNotifications('parking', slot, latestBooking);
+        createBookingNotifications('parking', slot, latestBooking);
         console.log(`📍 Booking notification sent for user ${username}, slot ${slotNumber}, date ${date}`);
     } catch (error) {
         console.error('❌ Error sending booking notification:', error.message, error.stack);

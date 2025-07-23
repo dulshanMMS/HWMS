@@ -1,10 +1,12 @@
 
+
 import * as NotificationService from '../services/notificationService.js';
-import { 
+import {
   getNotificationPreferences as getPreferencesService,
-  updateNotificationPreferences as updatePreferencesService 
+  updateNotificationPreferences as updatePreferencesService,
 } from '../services/notificationService.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 export const getUserOwnNotifications = async (req, res) => {
   try {
@@ -12,10 +14,10 @@ export const getUserOwnNotifications = async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ message: 'User not authenticated', user: req.user });
     }
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, filter = 'all' } = req.query;
     const userId = req.user.id;
     console.log(`Fetching notifications for userId: ${userId}`);
-    const notifications = await NotificationService.getNotifications(page, limit, userId);
+    const notifications = await NotificationService.getNotifications(page, limit, userId, filter);
     res.json(notifications);
   } catch (error) {
     console.error('Error in getUserOwnNotifications:', error);
@@ -36,10 +38,10 @@ export const getAdminOwnNotifications = async (req, res) => {
     if (user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admins only.' });
     }
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, filter = 'all' } = req.query;
     const userId = req.user.id;
     console.log(`Fetching admin notifications for userId: ${userId}`);
-    const notifications = await NotificationService.getNotifications(page, limit, userId);
+    const notifications = await NotificationService.getNotifications(page, limit, userId, filter);
     res.json(notifications);
   } catch (error) {
     console.error('Error in getAdminOwnNotifications:', error);
@@ -92,7 +94,27 @@ export const markAsUnread = async (req, res) => {
   }
 };
 
+export const markAllAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await NotificationService.markAllAsRead(userId);
+    res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    console.error('Error in markAllAsRead:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
+export const markAllAsUnread = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await NotificationService.markAllAsUnread(userId);
+    res.json({ message: 'All notifications marked as unread' });
+  } catch (error) {
+    console.error('Error in markAllAsUnread:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 export const deleteNotification = async (req, res) => {
   try {
@@ -106,6 +128,17 @@ export const deleteNotification = async (req, res) => {
   }
 };
 
+export const deleteAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await NotificationService.deleteAllNotifications(userId);
+    res.json({ message: 'All notifications deleted' });
+  } catch (error) {
+    console.error('Error in deleteAllNotifications:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 export const sendBulkNotification = async (req, res) => {
   try {
     const { recipients, title, message, type, emailSubject } = req.body;
@@ -116,17 +149,6 @@ export const sendBulkNotification = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
-// export const createBookingNotification = async (req, res) => {
-//   try {
-//     const { type, bookingRecord, latestBooking } = req.body;
-//     const notification = await NotificationService.createBookingNotifications(type, bookingRecord, latestBooking);
-//     res.json(notification);
-//   } catch (error) {
-//     console.error('Error in createBookingNotification:', error);
-//     res.status(500).json({ message: 'Server error', error: error.message });
-//   }
-// };
 
 export const createBookingNotification = async (req, res) => {
   try {
@@ -147,7 +169,23 @@ export const createBookingNotification = async (req, res) => {
   }
 };
 
-
+export const createCancellationNotification = async (req, res) => {
+  try {
+    const { slotId, userName, date, entryTime, type } = req.body;
+    console.log(`Received cancellation request: slotId=${slotId}, userName=${userName}, date=${date}, entryTime=${entryTime}, type=${type}`);
+    const notification = await NotificationService.triggerCancellationNotification({
+      slotId,
+      userName,
+      date,
+      entryTime,
+      type
+    });
+    res.json(notification);
+  } catch (error) {
+    console.error('Error in createCancellationNotification:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 export const getNotificationPreferences = async (req, res) => {
   try {
@@ -182,7 +220,6 @@ export const updateNotificationPreferences = async (req, res) => {
   }
 };
 
-// New route to manually trigger booking reminder emails for testing
 export const triggerBookingReminderEmails = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('role');
@@ -193,24 +230,6 @@ export const triggerBookingReminderEmails = async (req, res) => {
     res.json({ message: 'Booking reminder emails triggered successfully' });
   } catch (error) {
     console.error('Error in triggerBookingReminderEmails:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-export const createCancellationNotification = async (req, res) => {
-  try {
-    const { slotId, userName, date, entryTime, type } = req.body;
-    console.log(`Received cancellation request: slotId=${slotId}, userName=${userName}, date=${date}, entryTime=${entryTime}, type=${type}`);
-    const notification = await NotificationService.triggerCancellationNotification({
-      slotId,
-      userName,
-      date,
-      entryTime,
-      type
-    });
-    res.json(notification);
-  } catch (error) {
-    console.error('Error in createCancellationNotification:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
