@@ -139,6 +139,11 @@ export const deleteAllNotifications = async (req, res) => {
   }
 };
 
+// Add or update in notificationController.js
+  
+
+ 
+
 export const sendBulkNotification = async (req, res) => {
   try {
     const { recipients, title, message, type, emailSubject } = req.body;

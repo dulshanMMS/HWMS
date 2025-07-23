@@ -698,3 +698,18 @@ export function initializeNotificationSystem() {
   });
   console.log('✅ Notification system initialized successfully');
 }
+
+// export async function deleteAllNotificationsInDatabase() {
+//   try {
+//     console.log('🗑️ Deleting all notifications in the database...');
+//     const result = await Notification.deleteMany({});
+//     console.log(`✅ Successfully deleted ${result.deletedCount} notifications`);
+//     return {
+//       message: `Successfully deleted ${result.deletedCount} notifications`,
+//       deletedCount: result.deletedCount
+//     };
+//   } catch (error) {
+//     console.error('❌ Error deleting all notifications:', error.message, error.stack);
+//     throw new Error(`Failed to delete notifications: ${error.message}`);
+//   }
+// }
