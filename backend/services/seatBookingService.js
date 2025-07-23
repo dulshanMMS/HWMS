@@ -281,11 +281,6 @@ export const validateBookingConflict = (memberRecord, seatId, date, entryTime, e
 // (Continue from Part 1)
 
 export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTime, exitTime) => {
-  const parseTime = (timeStr) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
-  
   let requestDate;
   try {
     const dateObj = new Date(date);
@@ -298,15 +293,12 @@ export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTim
     throw new Error(`Invalid date format: ${date}`);
   }
   
-  const requestStart = parseTime(entryTime);
-  const requestEnd = parseTime(exitTime);
-  
   const memberName = memberRecord.userName;
   
   console.log(`🔍 === SAME DAY FLOOR VALIDATION START ===`);
   console.log(`👤 Member: ${memberName}`);
   console.log(`📅 Request: Floor ${floor}, Date ${requestDate}`);
-  console.log(`⏰ Request Time: ${entryTime}-${exitTime} (${requestStart}-${requestEnd} minutes)`);
+  console.log(`⏰ Request Time: ${entryTime}-${exitTime}`);
   console.log(`📊 Total member bookings: ${memberRecord.bookings.length}`);
   
   const sameDayFloorBookings = memberRecord.bookings.filter(booking => {
@@ -340,43 +332,22 @@ export const validateSameDayFloorBookings = (memberRecord, floor, date, entryTim
     return { valid: true };
   }
   
-  for (let i = 0; i < sameDayFloorBookings.length; i++) {
-    const existingBooking = sameDayFloorBookings[i];
-    const existingStart = parseTime(existingBooking.entryTime);
-    const existingEnd = parseTime(existingBooking.exitTime);
-    
-    console.log(`🔍 Conflict check ${i + 1}:`);
-    console.log(`  Existing: ${existingBooking.entryTime}(${existingStart}) - ${existingBooking.exitTime}(${existingEnd}) [Seat: ${existingBooking.seatId}]`);
-    console.log(`  New:      ${entryTime}(${requestStart}) - ${exitTime}(${requestEnd})`);
-    
-    const condition1 = requestStart < existingEnd;
-    const condition2 = existingStart < requestEnd;
-    const timesOverlap = condition1 && condition2;
-    
-    console.log(`  requestStart < existingEnd: ${requestStart} < ${existingEnd} = ${condition1}`);
-    console.log(`  existingStart < requestEnd: ${existingStart} < ${requestEnd} = ${condition2}`);
-    console.log(`  Times overlap: ${condition1} && ${condition2} = ${timesOverlap}`);
-    
-    if (timesOverlap) {
-      console.log(`❌ BOOKING REJECTED - Time overlap detected with ${existingBooking.seatId}`);
-      console.log(`🔍 === SAME DAY FLOOR VALIDATION END - FAILED ===`);
-      
-      return {
-        valid: false,
-        error: `Time conflict: You already have a booking from ${existingBooking.entryTime} to ${existingBooking.exitTime} on floor ${floor}. New bookings must start at or after ${existingBooking.exitTime}.`,
-        conflictingBooking: {
-          seatId: existingBooking.seatId,
-          timeSlot: `${existingBooking.entryTime} - ${existingBooking.exitTime}`
-        }
-      };
-    } else {
-      console.log(`✅ No overlap with this booking`);
-    }
-  }
+  // MODIFIED: Instead of checking time overlaps, just reject any additional booking
+  const existingBooking = sameDayFloorBookings[0]; // Get the first (and should be only) booking
   
-  console.log(`✅ All time validations passed - ALLOWED`);
-  console.log(`🔍 === SAME DAY FLOOR VALIDATION END - SUCCESS ===`);
-  return { valid: true };
+  console.log(`❌ BOOKING REJECTED - User already has a booking on this day/floor`);
+  console.log(`🔍 === SAME DAY FLOOR VALIDATION END - FAILED ===`);
+  
+  return {
+    valid: false,
+    error: `You already have a booking on floor ${floor} for ${requestDate}. You can only have one booking per floor per day. Please cancel your existing booking for seat ${existingBooking.seatId} (${existingBooking.entryTime} - ${existingBooking.exitTime}) first.`,
+    conflictingBooking: {
+      seatId: existingBooking.seatId,
+      timeSlot: `${existingBooking.entryTime} - ${existingBooking.exitTime}`,
+      date: requestDate,
+      floor: floor
+    }
+  };
 };
 
 export const checkSeatAvailability = async (seatId, floor, date, entryTime, exitTime) => {
@@ -452,10 +423,31 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
 // SIMPLIFIED: Add booking to member - only self-booking allowed
 export const addBookingToMember = async (userName, bookingData) => {
   try {
-    console.log(`🎯 === SELF-BOOKING VALIDATION START for ${userName} ===`);
+    console.log(`🎯 === BOOKING VALIDATION START for ${userName} ===`);
     
-    // Get or create member record
+    // Get member record first
     const memberRecord = await getOrCreateMemberRecord(userName);
+    
+    // SIMPLE CHECK: Does user already have ANY booking for this day/floor?
+    const bookingDate = new Date(bookingData.date).toISOString().split('T')[0];
+    const existingBookingOnSameDayFloor = memberRecord.bookings.find(booking => {
+      try {
+        const existingDate = new Date(booking.date).toISOString().split('T')[0];
+        return existingDate === bookingDate && booking.floor === bookingData.floor;
+      } catch (error) {
+        console.warn(`⚠️ Error parsing booking date: ${booking.date}`);
+        return false;
+      }
+    });
+    
+    if (existingBookingOnSameDayFloor) {
+      console.log(`❌ BOOKING REJECTED - User already has booking: ${existingBookingOnSameDayFloor.seatId}`);
+      throw new Error(`You already have a booking for ${bookingDate} on floor ${bookingData.floor}. Please cancel your existing booking for seat ${existingBookingOnSameDayFloor.seatId} first.`);
+    }
+    
+    console.log(`✅ No existing booking found - proceeding with validation`);
+    
+    // Continue with all other existing validations...
     
     // Business validation 1: Check for conflicts within this member's bookings (same seat only)
     const hasConflict = validateBookingConflict(
@@ -470,24 +462,7 @@ export const addBookingToMember = async (userName, bookingData) => {
       throw new Error(`You already have a booking conflict for seat ${bookingData.seatId} at this time`);
     }
     
-    // Business validation 2: Same-day same-floor time sequencing validation
-    console.log(`🔍 Running same-day floor validation...`);
-    const sameDayFloorValidation = validateSameDayFloorBookings(
-      memberRecord,
-      bookingData.floor,
-      bookingData.date,
-      bookingData.entryTime,
-      bookingData.exitTime
-    );
-    
-    if (!sameDayFloorValidation.valid) {
-      console.log(`❌ Same-day floor validation FAILED: ${sameDayFloorValidation.error}`);
-      throw new Error(sameDayFloorValidation.error);
-    }
-    
-    console.log(`✅ Same-day floor validation PASSED`);
-    
-    // Business validation 3: Check availability across all members (same seat only)
+    // Business validation 2: Check availability across all members (same seat only)
     const availability = await checkSeatAvailability(
       bookingData.seatId,
       bookingData.floor,
@@ -500,16 +475,16 @@ export const addBookingToMember = async (userName, bookingData) => {
       throw new Error(`Seat ${bookingData.seatId} is already booked by ${availability.conflict.userName} from ${availability.conflict.existingTime}`);
     }
     
-    // Business validation 4: Date validation
-    const bookingDate = new Date(bookingData.date);
+    // Business validation 3: Date validation
+    const bookingDateObj = new Date(bookingData.date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    if (bookingDate < today) {
+    if (bookingDateObj < today) {
       throw new Error('Cannot create bookings for past dates');
     }
     
-    // Business validation 5: Time validation
+    // Business validation 4: Time validation
     const parseTime = (timeStr) => {
       const [hours, minutes] = timeStr.split(':').map(Number);
       return hours * 60 + minutes;
@@ -527,10 +502,10 @@ export const addBookingToMember = async (userName, bookingData) => {
       throw new Error('Booking duration cannot exceed 8 hours');
     }
     
-    // Business validation 6: Advance booking limit
+    // Business validation 5: Advance booking limit
     const maxAdvanceDate = new Date();
     maxAdvanceDate.setDate(maxAdvanceDate.getDate() + 30);
-    if (bookingDate > maxAdvanceDate) {
+    if (bookingDateObj > maxAdvanceDate) {
       throw new Error('Cannot book more than 30 days in advance');
     }
     
@@ -541,7 +516,7 @@ export const addBookingToMember = async (userName, bookingData) => {
     await memberRecord.save();
     
     console.log(`✅ Added booking ${bookingId} for member ${userName}`);
-    console.log(`🎯 === SELF-BOOKING VALIDATION END ===`);
+    console.log(`🎯 === BOOKING VALIDATION END ===`);
     
     return {
       memberRecord,
