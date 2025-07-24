@@ -2,13 +2,8 @@ import express from "express";
 import ParkingSlot from "../models/ParkingSlots.js";
 import { io } from "../server.js"; // Import socket instance
 import verifyToken from "../middleware/authMiddleware.js"; // Import the authentication middleware
-
-//import * as NotificationService from '../services/notificationService.js';
-//import User from '../models/User.js';
-
-
 import User from '../models/User.js';
-
+import { createBookingNotifications } from '../services/notificationService.js'; // Import createBookingNotifications Sjay
 
 const router = express.Router();
 
@@ -53,32 +48,20 @@ router.post("/book-slot", verifyToken, async (req, res) => {
     if (overlapping) return res.status(400).json({ message: "Slot already booked for this time" });
 
     // Save booking with username instead of userId
-    slot.bookings.push({ userName:username, date, entryTime, exitTime });
+    slot.bookings.push({ userName: username, date, entryTime, exitTime });
     await slot.save();
-
 
     // Emit real-time update
     io.emit("updateParkingSlots", { message: "Slot booked", slot });
 
-    // Send notifications
-    //const user = await User.findOne({ username });
-    //const admins = await User.find({ role: 'admin' });
-
-    //await NotificationService.sendBookingNotification({
-    //  booking: { _id: slot._id, type: 'parking_booking' },
-    //  user,
-    //  type: 'parking_booking'
-    //});
-
-    //for (const admin of admins) {
-    //  await NotificationService.sendNotification({
-    //    recipient: admin._id,
-    //    title: 'New Parking Booking',
-    //    message: `${username} has booked a parking slot.`,
-    //    type: 'important'
-    //  });
-    //}
-
+    // Send booking notifications Sjay
+    try {
+        const latestBooking = slot.bookings[slot.bookings.length - 1];
+        createBookingNotifications('parking', slot, latestBooking);
+        console.log(`📍 Booking notification sent for user ${username}, slot ${slotNumber}, date ${date}`);
+    } catch (error) {
+        console.error('❌ Error sending booking notification:', error.message, error.stack);
+    }
 
     res.json({ message: "Booking successful", slot });
 });

@@ -75,30 +75,35 @@ export const getTeamMemberCounts = async (req, res) => {
   }
 };
 
-// PUT: Update a team's name
+// PUT: Update team name and/or color
 export const updateTeam = async (req, res) => {
   const { id } = req.params;
-  const { teamName } = req.body;
+  const { teamName, color } = req.body;
 
-  if (!teamName) {
-    return res.status(400).json({ message: 'Team name is required' });
+  if (!teamName || !color) {
+    return res.status(400).json({ message: 'Both teamName and color are required' });
   }
 
   try {
-    // Check for duplicate team name (excluding self)
-    const existing = await Team.findOne({ teamName, _id: { $ne: id } });
-    if (existing) {
+    const existingWithSameName = await Team.findOne({ teamName, _id: { $ne: id } });
+    if (existingWithSameName) {
       return res.status(409).json({ message: 'Team name already exists' });
     }
-    
-    const updated = await Team.findByIdAndUpdate(id, { teamName }, { new: true });
-    if (!updated) {
+
+    const updatedTeam = await Team.findByIdAndUpdate(
+      id,
+      { teamName, color },
+      { new: true }
+    );
+
+    if (!updatedTeam) {
       return res.status(404).json({ message: 'Team not found' });
     }
-    res.status(200).json(updated);
+
+    res.status(200).json(updatedTeam);
   } catch (err) {
-    console.error("Error updating team:", err);
-    res.status(500).json({ message: "Server error while updating team" });
+    console.error('Error updating team:', err);
+    res.status(500).json({ message: 'Server error while updating team' });
   }
 };
 
