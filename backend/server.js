@@ -27,6 +27,7 @@ import bookingViewRoutes from './routes/bookingViewRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import announcementRoutes from "./routes/announcementRoutes.js";
 
+import supportRoutes from './routes/supportRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import { socketController } from './controllers/socketController.js';
 
@@ -65,6 +66,7 @@ app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/support', supportRoutes);
 
 // Test Routes
 app.get("/", (req, res) => {
@@ -106,6 +108,9 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // Handle messaging events FIRST (before other socket events)
+  socketController.handleMessagingEvents(socket, io);
+
   socket.on("newNotification", async (notification) => {
     try {
       const newNotification = new Notification(notification);
@@ -119,7 +124,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
-  socketController.handleMessagingEvents(socket, io);
+
 });
 
 // Start Server

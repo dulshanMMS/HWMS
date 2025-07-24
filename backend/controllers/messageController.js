@@ -376,12 +376,29 @@ export const deleteMessage = async (req, res) => {
 // Get unread message count
 export const getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id || req.user.id;
+
+    // Step 1: Find conversations where this user is a participant
+    const userConversations = await Conversation.find({
+      'participants.userId': userId
+    }).select('_id');
+
+    // Step 2: If user has no conversations, they have no unread messages
+    if (userConversations.length === 0) {
+      return res.json({
+        success: true,
+        unreadCount: 0
+      });
+    }
+
+    // Step 3: Count unread messages only from user's conversations
+    const conversationIds = userConversations.map(conv => conv._id);
 
     const unreadCount = await Message.countDocuments({
-      sender: { $ne: userId },
-      'readBy.userId': { $ne: userId },
-      isDeleted: false
+      conversationId: { $in: conversationIds },    // Only from user's conversations
+      sender: { $ne: userId },                     // Not sent by current user
+      'readBy.userId': { $ne: userId },            // Not read by current user
+      isDeleted: false                             // Not deleted messages
     });
 
     res.json({

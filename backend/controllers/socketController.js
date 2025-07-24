@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { Message, Conversation } from '../models/Message.js';
-import Notification from '../models/Notification.js';
 
 // Export the Map so messageController can access it
 export const messagingConnectedUsers = new Map();
@@ -11,49 +10,74 @@ export const socketController = {
     // Authentication for messaging
     socket.on('authenticateMessaging', async (token) => {
       try {
+        if (!token) {
+          socket.emit('messagingAuthError', 'No token provided');
+          return;
+        }
+
+        // Verify JWT token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Find user in database
         const user = await User.findById(decoded.id).select('-password');
 
-        if (user) {
-          socket.messagingUserId = user._id.toString();
-          socket.messagingUserInfo = {
-            id: user._id,
-            username: user.username,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            profilePhoto: user.profilePhoto
-          };
-
-          messagingConnectedUsers.set(socket.messagingUserId, {
-            socketId: socket.id,
-            userInfo: socket.messagingUserInfo,
-            lastSeen: new Date()
-          });
-
-          socket.join(`messaging_user_${socket.messagingUserId}`);
-          await socketController.updateMessagingUserOnlineStatus(socket.messagingUserId, true, io);
-
-          console.log(`User ${user.username} authenticated for messaging`);
-          socket.emit('messagingAuthenticated', { success: true, user: socket.messagingUserInfo });
+        if (!user) {
+          socket.emit('messagingAuthError', 'User not found');
+          return;
         }
+
+        // Store user info on socket
+        socket.messagingUserId = user._id.toString();
+        socket.messagingUserInfo = {
+          id: user._id,
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profilePhoto: user.profilePhoto
+        };
+
+        // Add to connected users map
+        messagingConnectedUsers.set(socket.messagingUserId, {
+          socketId: socket.id,
+          userInfo: socket.messagingUserInfo,
+          lastSeen: new Date()
+        });
+
+        // Join user-specific room
+        socket.join(`messaging_user_${socket.messagingUserId}`);
+
+        // Update online status
+        await socketController.updateMessagingUserOnlineStatus(socket.messagingUserId, true, io);
+
+        socket.emit('messagingAuthenticated', {
+          success: true,
+          user: socket.messagingUserInfo
+        });
+
       } catch (error) {
-        console.error('Messaging authentication failed:', error);
-        socket.emit('messagingAuthError', 'Authentication failed');
+        if (error.name === 'JsonWebTokenError') {
+          socket.emit('messagingAuthError', 'Invalid token');
+        } else if (error.name === 'TokenExpiredError') {
+          socket.emit('messagingAuthError', 'Token expired');
+        } else {
+          socket.emit('messagingAuthError', 'Authentication failed');
+        }
       }
     });
 
     // Join conversation room
     socket.on('joinMessagingConversation', async (conversationId) => {
       try {
-        if (!socket.messagingUserId) return;
+        if (!socket.messagingUserId) {
+          return;
+        }
 
         const conversation = await Conversation.findById(conversationId);
         if (conversation && conversation.participants.some(p => p.userId.toString() === socket.messagingUserId)) {
           socket.join(`messaging_conversation_${conversationId}`);
-          console.log(`User ${socket.messagingUserId} joined messaging conversation ${conversationId}`);
         }
       } catch (error) {
-        console.error('Error joining messaging conversation:', error);
+        // Silent error handling
       }
     });
 
@@ -95,7 +119,6 @@ export const socketController = {
           socket.emit('messagingError', result.error);
         }
       } catch (error) {
-        console.error('Error sending message via socket:', error);
         socket.emit('messagingError', 'Failed to send message');
       }
     });
@@ -103,16 +126,12 @@ export const socketController = {
     // Handle disconnect for messaging
     socket.on('disconnect', async () => {
       if (socket.messagingUserId) {
-        console.log(`🔴 User ${socket.messagingUserId} disconnecting from messaging...`);
-
         // Remove from connected users map
         messagingConnectedUsers.delete(socket.messagingUserId);
 
         // Update status in database and emit to other users
         await socketController.updateMessagingUserOnlineStatus(socket.messagingUserId, false, io);
         await socketController.updateMessagingLastSeen(socket.messagingUserId);
-
-        console.log(`✅ User ${socket.messagingUserId} marked as offline`);
       }
     });
   },
@@ -146,14 +165,26 @@ export const socketController = {
         messageType
       });
 
+      // Broadcast to conversation room
       io.to(`messaging_conversation_${conversationId}`).emit('newMessagingMessage', {
         conversationId,
         message: newMessage
       });
 
+      // Also broadcast to individual user rooms for unread count updates
+      const participantIds = conversation.participants
+        .filter(p => p.userId.toString() !== userId)
+        .map(p => p.userId.toString());
+
+      participantIds.forEach(participantId => {
+        io.to(`messaging_user_${participantId}`).emit('newMessagingMessage', {
+          conversationId,
+          message: newMessage
+        });
+      });
+
       return { success: true, message: newMessage };
     } catch (error) {
-      console.error('Error in handleSendMessage:', error);
       return { success: false, error: 'Failed to send message' };
     }
   },
@@ -182,7 +213,7 @@ export const socketController = {
         });
       });
     } catch (error) {
-      console.error('Error updating messaging online status:', error);
+      // Silent error handling
     }
   },
 
@@ -193,7 +224,7 @@ export const socketController = {
         { $set: { 'participants.$.lastSeen': new Date() } }
       );
     } catch (error) {
-      console.error('Error updating messaging last seen:', error);
+      // Silent error handling
     }
   }
 };
