@@ -4,29 +4,28 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
-
+import seatbookingRoutes from "./routes/seatBookings.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
+import teamRoutes from "./routes/teamRoutes.js";
+import authRoutes from './routes/auth.js';
+import seatHistoryRoutes from "./routes/seatHistoryRoutes.js";
 import parkingRoutes from "./routes/parkingRoutes.js";
-import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import ratingRoutes from "./routes/ratingRoutes.js"; // New rating routes
 import { initializeNotificationSystem } from './services/notificationService.js';
-//import { generateNotificationsForPastBookings } from './services/NotificationService.js';
-
 
 import ParkingSlot from './models/ParkingSlots.js';
 import SeatingSlot from './models/SeatingSlots.js';
 import Notification from "./models/Notification.js";
 import Rating from "./models/ratingModel.js"; // New rating model
 
-import parkinghistoryRoutes from "./routes/parkinghistoryRoutes.js"; //history
-import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";   //parking_admin
-import bookingRoutes from './routes/bookingRoutes.js';
+import parkinghistoryRoutes from "./routes/parkinghistoryRoutes.js";
+import parkingAdminRoutes from "./routes/parkingAdminRoutes.js";
 import eventRoutes from './routes/events.js';
 import userRoutes from "./routes/user.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import bookingViewRoutes from './routes/bookingViewRoutes.js';
-import teamRoutes from './routes/teamRoutes.js';
 import announcementRoutes from "./routes/announcementRoutes.js";
 
 import messageRoutes from './routes/messageRoutes.js';
@@ -55,10 +54,12 @@ app.use(express.json());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/parking", parkingRoutes);
+app.use("/api/seathistory", seatHistoryRoutes);
 app.use("/api/reports", reportRoutes);
-app.use("/api/history", parkinghistoryRoutes);  // history
-app.use("/api/admin/parking", parkingAdminRoutes);  // parking admin
+app.use("/api/history", parkinghistoryRoutes);
+app.use("/api/admin/parking", parkingAdminRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/bookings", seatbookingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/user", userRoutes);
