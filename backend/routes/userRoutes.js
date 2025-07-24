@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import {
   getUserProfile,
   updateUserProfile,
+  getUsers,
 } from "../controllers/userController.js";
 import verifyToken from "../middleware/authMiddleware.js"; // Auth middleware to verify JWT
 
@@ -11,6 +12,7 @@ const router = express.Router();
 // Route to get the profile info of the logged-in user
 // Protected route: requires valid JWT token
 router.get("/profile", verifyToken, getUserProfile);
+router.get("/", getUsers); // for teamId-based query in AdminTeamManagement ------------- Maleeha
 
 // Route to update the logged-in user's profile info
 // Protected route with input validation on specific fields

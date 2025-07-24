@@ -1,7 +1,17 @@
 import express from "express";
-import { addTeam, getAllTeams, getTeamMembers, getTeamMemberCounts, updateTeam, deleteTeam } from '../controllers/teamController.js';
+import {
+  getAllTeams,
+  addTeam,
+  getTeamMembers,
+  getTeamMemberCounts,
+  updateTeam,
+  deleteTeam,
+  getAllUsers, 
+} from '../controllers/teamController.js';
 
 const router = express.Router();
+
+router.get('/teams/users', getAllUsers);
 
 // GET /api/teams
 router.get('/teams', getAllTeams);
