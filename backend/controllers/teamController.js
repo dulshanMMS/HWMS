@@ -78,7 +78,7 @@ export const getTeamMemberCounts = async (req, res) => {
 // PUT: Update team name and/or color
 export const updateTeam = async (req, res) => {
   const { id } = req.params;
-  const { teamName, color } = req.body;
+  const { teamName, color, addUserId, removeUserId } = req.body;
 
   if (!teamName || !color) {
     return res.status(400).json({ message: 'Both teamName and color are required' });
@@ -100,7 +100,19 @@ export const updateTeam = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    res.status(200).json(updatedTeam);
+    const team = await Team.findById(id); // To get the updated teamId value
+
+    // ADD user to team
+    if (addUserId) {
+      await User.findByIdAndUpdate(addUserId, { teamId: team.teamId });
+    }
+
+    // REMOVE user from team
+    if (removeUserId) {
+      await User.findByIdAndUpdate(removeUserId, { teamId: "" });
+    }
+
+    res.status(200).json({ message: 'Team updated successfully', updatedTeam });
   } catch (err) {
     console.error('Error updating team:', err);
     res.status(500).json({ message: 'Server error while updating team' });
@@ -120,5 +132,18 @@ export const deleteTeam = async (req, res) => {
   } catch (err) {
     console.error("Error deleting team:", err);
     res.status(500).json({ message: "Server error while deleting team" });
+  }
+};
+
+// GET: Fetch all users
+export const getAllUsers = async (req, res) => {
+  try {
+    const { teamId } = req.query;
+    const filter = teamId ? { teamId } : {};
+    const users = await User.find(filter).select('firstName lastName username teamId');
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Server error while fetching users' });
   }
 };

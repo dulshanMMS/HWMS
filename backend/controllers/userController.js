@@ -72,3 +72,27 @@ export const updateUserProfile = async (req, res) => {
 
   }
 };
+
+
+// Maleesha- For AdminTeamManagement
+export const getUsers = async (req, res) => {
+  try {
+    const { teamId } = req.query;
+
+    let users = [];
+
+    if (teamId) {
+      // Only select needed fields, including correct lowercase `username`
+      users = await User.find({ teamId }).select("firstName lastName username");
+    } else {
+      // return all users if no teamId is provided
+      users = await User.find().select("firstName lastName username");
+    }
+
+    res.json(users);
+  } catch (error) {
+    console.error("Failed to get users:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
