@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
 import ParkingSlot from '../models/ParkingSlots.js';
@@ -28,6 +29,16 @@ export async function markAsRead(notificationId, userId) {
   const notification = await Notification.findById(notificationId);
   if (!notification) throw new Error('Notification not found');
   
+  const user = await User.findById(userId).select('role');
+  if (!user) throw new Error('User not found');
+  
+  // Allow admins to mark 'important' notifications as read without checking recipients
+  if (user.role === 'admin' && notification.type === 'important') {
+    notification.read = true;
+    return notification.save();
+  }
+  
+  // For non-important notifications or non-admins, check recipients
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
@@ -41,6 +52,16 @@ export async function markAsUnread(notificationId, userId) {
   const notification = await Notification.findById(notificationId);
   if (!notification) throw new Error('Notification not found');
   
+  const user = await User.findById(userId).select('role');
+  if (!user) throw new Error('User not found');
+  
+  // Allow admins to mark 'important' notifications as unread without checking recipients
+  if (user.role === 'admin' && notification.type === 'important') {
+    notification.read = false;
+    return notification.save();
+  }
+  
+  // For non-important notifications or non-admins, check recipients
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
@@ -50,6 +71,23 @@ export async function markAsUnread(notificationId, userId) {
 }
 
 export async function markAllAsRead(userId) {
+  const user = await User.findById(userId).select('role');
+  if (!user) throw new Error('User not found');
+  
+  // For admins, mark all 'important' and their own notifications as read
+  if (user.role === 'admin') {
+    return Notification.updateMany(
+      {
+        $or: [
+          { recipients: { $in: [userId] }, deleted: false },
+          { type: 'important', deleted: false }
+        ]
+      },
+      { read: true }
+    );
+  }
+  
+  // For non-admins, mark only their own notifications
   return Notification.updateMany({ 
     recipients: { $in: [userId] }, 
     read: false, 
@@ -58,6 +96,23 @@ export async function markAllAsRead(userId) {
 }
 
 export async function markAllAsUnread(userId) {
+  const user = await User.findById(userId).select('role');
+  if (!user) throw new Error('User not found');
+  
+  // For admins, mark all 'important' and their own notifications as unread
+  if (user.role === 'admin') {
+    return Notification.updateMany(
+      {
+        $or: [
+          { recipients: { $in: [userId] }, deleted: false },
+          { type: 'important', deleted: false }
+        ]
+      },
+      { read: false }
+    );
+  }
+  
+  // For non-admins, mark only their own notifications
   return Notification.updateMany({ 
     recipients: { $in: [userId] }, 
     read: true, 
@@ -169,7 +224,90 @@ export async function getNotifications(page = 1, limit = 10, userId, filter = 'a
   }
 }
 
+
+
+// export async function getNotifications(page = 1, userId, filter = 'all') {
+//   try {
+//     console.log(`getNotifications called with page=${page}, userId=${userId}, filter=${filter}`);
+    
+//     if (!userId) {
+//       console.error('userId is undefined');
+//       throw new Error('userId is undefined');
+//     }
+
+//     const user = await User.findById(userId).select('role username');
+//     if (!user) {
+//       console.error(`User not found for userId: ${userId}`);
+//       throw new Error('User not found');
+//     }
+//     console.log(`User found: ${user.username}, role: ${user.role}`);
+
+//     let query = { deleted: false };
+
+//     if (user.role === 'admin') {
+//       if (filter === 'parking') {
+//         query.$or = [
+//           { recipients: userId, type: { $in: ['parking_booking', 'parking_cancellation'] } },
+//           { type: 'important', message: { $regex: 'parking', $options: 'i' } }
+//         ];
+//       } else if (filter === 'seating') {
+//         query.$or = [
+//           { recipients: userId, type: { $in: ['seat_booking', 'seat_cancellation'] } },
+//           { type: 'important', message: { $regex: 'seat', $options: 'i' } }
+//         ];
+//       } else if (filter === 'announcements') {
+//         query.type = 'admin_announcement';
+//       } else {
+//         query.$or = [
+//           { recipients: userId },
+//           { type: 'important' }
+//         ];
+//       }
+//     } else {
+//       query.recipients = userId;
+//       if (filter === 'parking') {
+//         query.type = { $in: ['parking_booking', 'parking_cancellation'] };
+//       } else if (filter === 'seating') {
+//         query.type = { $in: ['seat_booking', 'seat_cancellation'] };
+//       } else if (filter === 'announcements') {
+//         query.type = 'admin_announcement';
+//       }
+//     }
+
+//     console.log('Query:', JSON.stringify(query));
+//     const total = await Notification.countDocuments(query);
+//     console.log('Total notifications for filter', filter, ':', total);
+
+//     // Fetch all notifications without a limit
+//     const notifications = await Notification.find(query)
+//       .sort({ createdAt: -1 })
+//       .populate({
+//         path: 'bookingId',
+//         select: 'type details date',
+//         strictPopulate: false
+//       });
+
+//     console.log('Fetched notifications for filter', filter, ':', notifications.length);
+//     if (notifications.length === 0) {
+//       console.warn(`No notifications found for filter '${filter}' and userId '${userId}'`);
+//     } else {
+//       console.log('Notifications:', JSON.stringify(notifications, null, 2));
+//     }
+
+//     return {
+//       notifications,
+//       total,
+//       page: parseInt(page),
+//       totalPages: Math.ceil(total / 10) || 1 // Assuming 10 notifications per page for frontend
+//     };
+//   } catch (error) {
+//     console.error('Error in getNotifications:', error.message, error.stack);
+//     throw new Error(`Failed to fetch notifications: ${error.message}`);
+//   }
+// }
+
 // Parking booking notifications
+
 export async function createParkingBookingNotifications(parkingSlot, latestBooking) {
   try {
     console.log(`🚗 Processing parking booking: ${latestBooking.userName} -> Slot ${parkingSlot.slotNumber}`);
@@ -206,7 +344,7 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
         message: `Your parking slot ${parkingSlot.slotNumber} on Floor ${parkingSlot.floor} has been booked for ${bookingDate} from ${latestBooking.entryTime} to ${latestBooking.exitTime}`,
         type: 'parking_booking',
         bookingId,
-        category: 'parking' // Added for frontend filtering
+        category: 'parking'
       });
       await userNotification.save();
       console.log(`✅ User notification created for ${user.username}: ${userNotification._id}`);
@@ -238,7 +376,7 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
         message: `${user.firstName} ${user.lastName} (${user.username}) has booked parking slot ${parkingSlot.slotNumber} on Floor ${parkingSlot.floor} for ${bookingDate} from ${latestBooking.entryTime} to ${latestBooking.exitTime}`,
         type: 'important',
         bookingId,
-        category: 'parking' // Added for frontend filtering
+        category: 'parking'
       });
       await adminNotification.save();
       console.log(`✅ Single admin notification saved with recipients: ${admins.length}`);
@@ -307,7 +445,7 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
         message: `Your seat ${latestBooking.seatId} on Floor ${latestBooking.floor} has been booked for ${bookingDate} from ${latestBooking.entryTime} to ${latestBooking.exitTime}`,
         type: 'seat_booking',
         bookingId,
-        category: 'seating' // Added for frontend filtering
+        category: 'seating'
       });
       await userNotification.save();
       console.log(`✅ User notification created for ${user.username}: ${userNotification._id}`);
@@ -339,7 +477,7 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
         message: `${user.firstName} ${user.lastName} (${user.username}) has booked seat ${latestBooking.seatId} on Floor ${latestBooking.floor} for ${bookingDate} from ${latestBooking.entryTime} to ${latestBooking.exitTime}`,
         type: 'important',
         bookingId,
-        category: 'seating' // Added for frontend filtering
+        category: 'seating'
       });
       await adminNotification.save();
       console.log(`✅ Single admin notification saved with recipients: ${admins.length}`);
@@ -478,7 +616,7 @@ export async function createAnnouncementNotifications(announcement) {
         message: announcement.message,
         type: 'admin_announcement',
         bookingId: null,
-        category: 'announcement' // Added for frontend filtering
+        category: 'announcement'
       });
       await notification.save();
       console.log(`✅ Announcement notification created for ${userIds.length} users: ${userIds.join(', ')}`);
@@ -546,7 +684,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
         message: `Your ${type === 'parking' ? 'parking slot' : 'seat'} ${slotNumber} on Floor ${floor} booking for ${bookingDate} has been cancelled.`,
         type: `${type}_cancellation`,
         bookingId,
-        category: type // Added for frontend filtering
+        category: type
       });
       console.log(`🚫 About to save user notification for ${user.username}:`, JSON.stringify(userNotification));
       await userNotification.save();
@@ -581,7 +719,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
         message: `${user.firstName} ${user.lastName} (${user.username}) has cancelled their ${type === 'parking' ? 'parking slot' : 'seat'} ${slotNumber} on Floor ${floor} booking for ${bookingDate}.`,
         type: 'important',
         bookingId,
-        category: type // Added for frontend filtering
+        category: type
       });
       console.log(`🚫 About to save admin notification:`, JSON.stringify(adminNotification));
       await adminNotification.save();

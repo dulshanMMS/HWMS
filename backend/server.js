@@ -14,6 +14,11 @@ import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import ratingRoutes from "./routes/ratingRoutes.js"; // New rating routes
 import { initializeNotificationSystem } from './services/notificationService.js';
+<<<<<<< HEAD
+=======
+// import { deleteAllNotificationsInDatabase } from './services/NotificationService.js';
+
+>>>>>>> feature/reports
 
 import ParkingSlot from './models/ParkingSlots.js';
 import SeatingSlot from './models/SeatingSlots.js';
@@ -104,7 +109,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
     const notificationCount = await Notification.countDocuments();
 
     console.log(`Bookings: ${totalSeatBookings + totalParkingBookings}, Notifications: ${notificationCount}`);
-    //await generateNotificationsForPastBookings();
+    // await deleteAllNotificationsInDatabase(); // Only for testing Sjay
     // initializeNotificationSystem();
   })
   .catch(err => console.error('MongoDB connection error:', err));
