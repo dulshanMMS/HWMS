@@ -14,11 +14,9 @@ import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import ratingRoutes from "./routes/ratingRoutes.js"; // New rating routes
 import { initializeNotificationSystem } from './services/notificationService.js';
-<<<<<<< HEAD
-=======
-// import { deleteAllNotificationsInDatabase } from './services/NotificationService.js';
 
->>>>>>> feature/reports
+// import { deleteAllNotificationsInDatabase } from './services/NotificationService.js'; //For testing only Sjay
+
 
 import ParkingSlot from './models/ParkingSlots.js';
 import SeatingSlot from './models/SeatingSlots.js';
