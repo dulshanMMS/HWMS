@@ -33,6 +33,7 @@ import announcementRoutes from "./routes/announcementRoutes.js";
 
 import messageRoutes from './routes/messageRoutes.js';
 import { socketController } from './controllers/socketController.js';
+import supportRoutes from "./routes/supportRoutes.js";
 
 dotenv.config();
 
@@ -74,6 +75,7 @@ app.use("/api/ratings", ratingRoutes); // New rating routes
 
 app.use("/api/announcements", announcementRoutes);
 app.use('/api/messages', messageRoutes);
+app.use("/api/support", supportRoutes);
 
 
 // Test Routes
