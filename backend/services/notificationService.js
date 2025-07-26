@@ -338,9 +338,12 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
   }
 }
 
+
+
+
 export async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
   try {
-    console.log(`🪑 Processing seating booking: ${latestBooking.userName} -> Seat ${latestBooking.seatId}`);
+    console.log(`🪑 Processing seating booking: ${seatingRecord.userName} -> Seat ${latestBooking.seatId}`);
 
     // Use the actual bookingId from the booking record
     const bookingId = latestBooking.bookingId;
@@ -349,10 +352,15 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
       return null;
     }
 
-    const user = await User.findOne({ username: latestBooking.userName }).select('username email notificationPreferences firstName lastName');
+    if (!seatingRecord.userName) {
+      console.error(`❌ userName is undefined in seatingRecord`);
+      throw new Error(`userName is undefined in seatingRecord`);
+    }
+
+    const user = await User.findOne({ username: seatingRecord.userName }).select('username email notificationPreferences firstName lastName');
     if (!user) {
-      console.error(`❌ User not found: ${latestBooking.userName}`);
-      throw new Error(`User not found: ${latestBooking.userName}`);
+      console.error(`❌ User not found: ${seatingRecord.userName}`);
+      throw new Error(`User not found: ${seatingRecord.userName}`);
     }
 
     const preferences = user.notificationPreferences || {};
@@ -442,24 +450,37 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
 // Booking reminder emails
 export async function sendBookingReminderEmails() {
   try {
-    console.log('⏰ Sending booking reminder emails...');
-    const tomorrow = new Date();
+    console.log('⏰ Sending booking reminder emails (6 hours before)...');
+    const now = new Date();
+    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
+    const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
     const tomorrowEnd = new Date(tomorrow);
     tomorrowEnd.setHours(23, 59, 59, 999);
 
+    // Helper function to parse time string (e.g., "14:30") to hours and minutes
+    const parseTime = (timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return { hours, minutes };
+    };
+
     // Parking bookings
     const parkingSlots = await ParkingSlot.find({
       'bookings.date': {
-        $gte: tomorrow.toISOString().split('T')[0],
+        $gte: now.toISOString().split('T')[0],
         $lte: tomorrowEnd.toISOString().split('T')[0]
       }
     });
 
     for (const slot of parkingSlots) {
       for (const booking of slot.bookings) {
-        if (booking.date === tomorrow.toISOString().split('T')[0]) {
+        const bookingDate = new Date(booking.date);
+        const { hours, minutes } = parseTime(booking.entryTime);
+        bookingDate.setHours(hours, minutes, 0, 0);
+        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60); // Time diff in hours
+
+        if (timeDiff > 5.5 && timeDiff <= 6.5) { // Within 6-hour window (±30 minutes for flexibility)
           const user = await User.findOne({ username: booking.userName }).select('username email notificationPreferences');
           if (!user) {
             console.warn(`⚠️ User not found for parking booking: ${booking.userName}`);
@@ -472,7 +493,7 @@ export async function sendBookingReminderEmails() {
               await sendEmail({
                 to: user.email,
                 subject: 'Parking Booking Reminder',
-                message: `Reminder: Your parking slot ${slot.slotNumber} on Floor ${slot.floor} is booked for tomorrow, ${booking.date}, from ${booking.entryTime} to ${booking.exitTime}`
+                message: `Reminder: Your parking slot ${slot.slotNumber} on Floor ${slot.floor} is booked for ${booking.date} from ${booking.entryTime} to ${booking.exitTime}. Your booking starts in approximately 6 hours.`
               });
               console.log(`📧 Reminder email sent to user: ${user.email}`);
             } catch (emailError) {
@@ -488,14 +509,19 @@ export async function sendBookingReminderEmails() {
     // Seating bookings
     const seatingRecords = await SeatingSlots.find({
       'bookings.date': {
-        $gte: tomorrow.toISOString().split('T')[0],
+        $gte: now.toISOString().split('T')[0],
         $lte: tomorrowEnd.toISOString().split('T')[0]
       }
     });
 
     for (const record of seatingRecords) {
       for (const booking of record.bookings) {
-        if (booking.date === tomorrow.toISOString().split('T')[0]) {
+        const bookingDate = new Date(booking.date);
+        const { hours, minutes } = parseTime(booking.entryTime);
+        bookingDate.setHours(hours, minutes, 0, 0);
+        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60); // Time diff in hours
+
+        if (timeDiff > 5.5 && timeDiff <= 6.5) { // Within 6-hour window (±30 minutes for flexibility)
           const user = await User.findOne({ username: booking.userName }).select('username email notificationPreferences');
           if (!user) {
             console.warn(`⚠️ User not found for seating booking: ${booking.userName}`);
@@ -508,7 +534,7 @@ export async function sendBookingReminderEmails() {
               await sendEmail({
                 to: user.email,
                 subject: 'Seat Booking Reminder',
-                message: `Reminder: Your seat ${booking.seatId} on Floor ${booking.floor} is booked for tomorrow, ${booking.date}, from ${booking.entryTime} to ${booking.exitTime}`
+                message: `Reminder: Your seat ${booking.seatId} on Floor ${booking.floor} is booked for ${booking.date} from ${booking.entryTime} to ${booking.exitTime}. Your booking starts in approximately 6 hours.`
               });
               console.log(`📧 Reminder email sent to user: ${user.email}`);
             } catch (emailError) {
@@ -521,9 +547,9 @@ export async function sendBookingReminderEmails() {
       }
     }
 
-    console.log('✅ Finished sending booking reminder emails');
+    console.log('✅ Finished sending 6-hour booking reminder emails');
   } catch (error) {
-    console.error('❌ Error sending booking reminder emails:', error.message, error.stack);
+    console.error('❌ Error sending 6-hour booking reminder emails:', error.message, error.stack);
     throw error;
   }
 }
@@ -762,8 +788,8 @@ export async function deleteAllNotificationsInDatabase() {
 // Initialize notification system
 export function initializeNotificationSystem() {
   console.log('🚀 Initializing notification system...');
-  cron.schedule('0 8 * * *', () => {
-    console.log('⏰ Running daily booking reminder email job...');
+  cron.schedule('*/30 * * * *', () => {
+    console.log('⏰ Running 6-hour booking reminder email job...');
     sendBookingReminderEmails();
   }, {
     timezone: 'Asia/Kolkata'
