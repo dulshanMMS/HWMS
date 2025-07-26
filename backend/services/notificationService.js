@@ -127,18 +127,37 @@ export async function deleteAllNotifications(userId) {
   }, { deleted: true });
 }
 
-// Delete (soft)
+
+
 export async function deleteNotification(notificationId, userId) {
-  const notification = await Notification.findById(notificationId);
-  if (!notification) throw new Error('Notification not found');
-  
-  if (!notification.recipients.map(r => r.toString()).includes(userId)) {
-    throw new Error('Not authorized');
+  try {
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+      console.error(`Invalid notificationId format: ${notificationId}`);
+      throw new Error('Invalid notification ID');
+    }
+
+    const notification = await Notification.findById(notificationId);
+    if (!notification) {
+      console.error(`Notification not found: ${notificationId}`);
+      throw new Error('Notification not found');
+    }
+
+    if (!notification.recipients.map(r => r.toString()).includes(userId)) {
+      console.error(`Unauthorized access attempt for notification ${notificationId} by user ${userId}`);
+      throw new Error('Not authorized');
+    }
+
+    notification.deleted = true;
+    await notification.save();
+    console.log(`Notification ${notificationId} marked as deleted for user ${userId}`);
+    return notification;
+  } catch (error) {
+    console.error(`Error in deleteNotification: ${error.message}`, error.stack);
+    throw error;
   }
-  
-  notification.deleted = true;
-  return notification.save();
 }
+
+
 
 // Fetch notifications
 export async function getNotifications(page = 1, limit = 10, userId, filter = 'all') {
@@ -224,89 +243,6 @@ export async function getNotifications(page = 1, limit = 10, userId, filter = 'a
   }
 }
 
-
-
-// export async function getNotifications(page = 1, userId, filter = 'all') {
-//   try {
-//     console.log(`getNotifications called with page=${page}, userId=${userId}, filter=${filter}`);
-    
-//     if (!userId) {
-//       console.error('userId is undefined');
-//       throw new Error('userId is undefined');
-//     }
-
-//     const user = await User.findById(userId).select('role username');
-//     if (!user) {
-//       console.error(`User not found for userId: ${userId}`);
-//       throw new Error('User not found');
-//     }
-//     console.log(`User found: ${user.username}, role: ${user.role}`);
-
-//     let query = { deleted: false };
-
-//     if (user.role === 'admin') {
-//       if (filter === 'parking') {
-//         query.$or = [
-//           { recipients: userId, type: { $in: ['parking_booking', 'parking_cancellation'] } },
-//           { type: 'important', message: { $regex: 'parking', $options: 'i' } }
-//         ];
-//       } else if (filter === 'seating') {
-//         query.$or = [
-//           { recipients: userId, type: { $in: ['seat_booking', 'seat_cancellation'] } },
-//           { type: 'important', message: { $regex: 'seat', $options: 'i' } }
-//         ];
-//       } else if (filter === 'announcements') {
-//         query.type = 'admin_announcement';
-//       } else {
-//         query.$or = [
-//           { recipients: userId },
-//           { type: 'important' }
-//         ];
-//       }
-//     } else {
-//       query.recipients = userId;
-//       if (filter === 'parking') {
-//         query.type = { $in: ['parking_booking', 'parking_cancellation'] };
-//       } else if (filter === 'seating') {
-//         query.type = { $in: ['seat_booking', 'seat_cancellation'] };
-//       } else if (filter === 'announcements') {
-//         query.type = 'admin_announcement';
-//       }
-//     }
-
-//     console.log('Query:', JSON.stringify(query));
-//     const total = await Notification.countDocuments(query);
-//     console.log('Total notifications for filter', filter, ':', total);
-
-//     // Fetch all notifications without a limit
-//     const notifications = await Notification.find(query)
-//       .sort({ createdAt: -1 })
-//       .populate({
-//         path: 'bookingId',
-//         select: 'type details date',
-//         strictPopulate: false
-//       });
-
-//     console.log('Fetched notifications for filter', filter, ':', notifications.length);
-//     if (notifications.length === 0) {
-//       console.warn(`No notifications found for filter '${filter}' and userId '${userId}'`);
-//     } else {
-//       console.log('Notifications:', JSON.stringify(notifications, null, 2));
-//     }
-
-//     return {
-//       notifications,
-//       total,
-//       page: parseInt(page),
-//       totalPages: Math.ceil(total / 10) || 1 // Assuming 10 notifications per page for frontend
-//     };
-//   } catch (error) {
-//     console.error('Error in getNotifications:', error.message, error.stack);
-//     throw new Error(`Failed to fetch notifications: ${error.message}`);
-//   }
-// }
-
-// Parking booking notifications
 
 export async function createParkingBookingNotifications(parkingSlot, latestBooking) {
   try {
@@ -408,12 +344,13 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
   }
 }
 
-// Seating booking notifications
+
 export async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
   try {
     console.log(`🪑 Processing seating booking: ${latestBooking.userName} -> Seat ${latestBooking.seatId}`);
 
-    const bookingId = `${seatingRecord._id}-${latestBooking.date}-${latestBooking.entryTime}-${latestBooking.userName}`;
+    // Use the actual bookingId from the booking record
+    const bookingId = latestBooking.bookingId;
     if (processedBookingIds.has(bookingId)) {
       console.log(`🪑 Booking ${bookingId} already processed, skipping...`);
       return null;
@@ -508,6 +445,7 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
     throw error;
   }
 }
+
 
 // Booking reminder emails
 export async function sendBookingReminderEmails() {
@@ -822,6 +760,29 @@ export async function updateNotificationPreferences(userId, preferences) {
   } catch (error) {
     console.error('Error in updateNotificationPreferences service:', error);
     throw error;
+  }
+}
+
+// Delete all notifications in database (hard delete)
+export async function deleteAllNotificationsInDatabase() {
+  try {
+    console.log('🗑️ Starting hard deletion of all notifications in database...');
+    
+    const result = await Notification.deleteMany({});
+    
+    console.log(`✅ Successfully deleted ${result.deletedCount} notifications from database`);
+    
+    // Clear processedBookingIds to prevent stale references
+    processedBookingIds.clear();
+    console.log('✅ Cleared processedBookingIds set');
+    
+    return {
+      deletedCount: result.deletedCount,
+      message: `Successfully deleted ${result.deletedCount} notifications`
+    };
+  } catch (error) {
+    console.error('❌ Error deleting all notifications:', error.message, error.stack);
+    throw new Error(`Failed to delete notifications: ${error.message}`);
   }
 }
 
