@@ -1,5 +1,3 @@
-
-
 import * as NotificationService from '../services/notificationService.js';
 import {
   getNotificationPreferences as getPreferencesService,
@@ -139,10 +137,7 @@ export const deleteAllNotifications = async (req, res) => {
   }
 };
 
-// Add or update in notificationController.js
-  
 
- 
 
 export const sendBulkNotification = async (req, res) => {
   try {

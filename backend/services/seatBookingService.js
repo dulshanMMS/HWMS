@@ -2,6 +2,7 @@
 import SeatingSlots from "../models/SeatingSlots.js";
 import Team from "../models/Team.js";
 import User from "../models/User.js";
+import { createBookingNotifications, createCancellationNotifications } from "./notificationService.js";
 
 const convertToHexColor = (color) => {
   if (color && color.startsWith('#')) {
@@ -60,7 +61,8 @@ export const removeBookingFromRecord = (memberRecord, bookingId) => {
   return false;
 };
 
-export const removeBookingBySeat = (memberRecord, seatId, date, entryTime, exitTime) => {
+
+export const removeBookingBySeat = async (memberRecord, seatId, date, entryTime, exitTime) => {
   let targetDate;
   try {
     const dateObj = new Date(date);
@@ -73,8 +75,32 @@ export const removeBookingBySeat = (memberRecord, seatId, date, entryTime, exitT
     throw new Error(`Invalid date format: ${date}`);
   }
   
+  console.log(`🔍 Attempting to remove booking for user: ${memberRecord.userName}, seat: ${seatId}, date: ${targetDate}, time: ${entryTime}-${exitTime}`);
+  
   const initialLength = memberRecord.bookings.length;
   
+  const bookingToRemove = memberRecord.bookings.find(booking => {
+    let bookingDate;
+    try {
+      const bookingDateObj = new Date(booking.date);
+      if (isNaN(bookingDateObj.getTime())) {
+        console.warn(`⚠️ Invalid booking date found: ${booking.date}, keeping booking`);
+        return false;
+      }
+      bookingDate = bookingDateObj.toISOString().split('T')[0];
+    } catch (error) {
+      console.warn(`⚠️ Error parsing booking date: ${booking.date}, keeping booking`);
+      return false;
+    }
+    
+    return (
+      booking.seatId === seatId &&
+      bookingDate === targetDate &&
+      booking.entryTime === entryTime &&
+      booking.exitTime === exitTime
+    );
+  });
+
   memberRecord.bookings = memberRecord.bookings.filter(booking => {
     let bookingDate;
     try {
@@ -99,8 +125,37 @@ export const removeBookingBySeat = (memberRecord, seatId, date, entryTime, exitT
   
   if (memberRecord.bookings.length < initialLength) {
     memberRecord.totalBookings = memberRecord.bookings.length;
+    
+    // Create cancellation notification Sjay
+    if (bookingToRemove) {
+      console.log(`🎯 Found booking to remove: ${bookingToRemove.bookingId}`);
+      try {
+        const user = await User.findOne({ username: memberRecord.userName }).select('_id');
+        if (!user) {
+          console.error(`❌ User not found for username: ${memberRecord.userName}`);
+        } else {
+           createCancellationNotifications({
+            userId: user._id.toString(),
+            slotNumber: bookingToRemove.seatId,
+            floor: bookingToRemove.floor,
+            type: 'seat',
+            date: targetDate,
+            bookingId: bookingToRemove.bookingId
+          });
+          console.log(`✅ Cancellation notification created for booking: ${bookingToRemove.bookingId}`);
+        }
+      } catch (notificationError) {
+        console.error(`❌ Failed to create cancellation notification:`, notificationError);
+        // Don't throw error to avoid disrupting booking removal
+      }
+    } else {
+      console.warn(`⚠️ No booking found to remove for notification creation`);
+    }
+    
     return true;
   }
+  
+  console.log(`❌ No booking found to remove for seat: ${seatId}, date: ${targetDate}, time: ${entryTime}-${exitTime}`);
   return false;
 };
 
@@ -420,7 +475,7 @@ export const checkSeatAvailability = async (seatId, floor, date, entryTime, exit
   }
 };
 
-// SIMPLIFIED: Add booking to member - only self-booking allowed
+//SIMPLIFIED: Add booking to member - only self-booking allowed
 export const addBookingToMember = async (userName, bookingData) => {
   try {
     console.log(`🎯 === BOOKING VALIDATION START for ${userName} ===`);
@@ -514,6 +569,28 @@ export const addBookingToMember = async (userName, bookingData) => {
     
     // Save the record
     await memberRecord.save();
+
+
+
+    const user = await User.findOne({ username: userName }).select('_id');//Sjay
+    if (user) {
+      try {
+         createBookingNotifications('seating', memberRecord, {
+          seatId: bookingData.seatId,
+          floor: bookingData.floor,
+          date: bookingData.date,
+          entryTime: bookingData.entryTime,
+          exitTime: bookingData.exitTime,
+          userName: userName,
+          bookingId: bookingId
+        });
+        console.log(`✅ Booking notification created for booking: ${bookingId}`);
+      } catch (notificationError) {
+        console.error(`❌ Failed to create booking notification for ${bookingId}:`, notificationError);
+      }
+    } else {
+      console.error(`❌ User not found for username: ${userName}`);
+    }
     
     console.log(`✅ Added booking ${bookingId} for member ${userName}`);
     console.log(`🎯 === BOOKING VALIDATION END ===`);

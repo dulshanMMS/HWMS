@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
 import ParkingSlot from '../models/ParkingSlots.js';
@@ -127,17 +126,32 @@ export async function deleteAllNotifications(userId) {
   }, { deleted: true });
 }
 
-// Delete (soft)
 export async function deleteNotification(notificationId, userId) {
-  const notification = await Notification.findById(notificationId);
-  if (!notification) throw new Error('Notification not found');
-  
-  if (!notification.recipients.map(r => r.toString()).includes(userId)) {
-    throw new Error('Not authorized');
+  try {
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+      console.error(`Invalid notificationId format: ${notificationId}`);
+      throw new Error('Invalid notification ID');
+    }
+
+    const notification = await Notification.findById(notificationId);
+    if (!notification) {
+      console.error(`Notification not found: ${notificationId}`);
+      throw new Error('Notification not found');
+    }
+
+    if (!notification.recipients.map(r => r.toString()).includes(userId)) {
+      console.error(`Unauthorized access attempt for notification ${notificationId} by user ${userId}`);
+      throw new Error('Not authorized');
+    }
+
+    notification.deleted = true;
+    await notification.save();
+    console.log(`Notification ${notificationId} marked as deleted for user ${userId}`);
+    return notification;
+  } catch (error) {
+    console.error(`Error in deleteNotification: ${error.message}`, error.stack);
+    throw error;
   }
-  
-  notification.deleted = true;
-  return notification.save();
 }
 
 // Fetch notifications
@@ -223,90 +237,6 @@ export async function getNotifications(page = 1, limit = 10, userId, filter = 'a
     throw new Error(`Failed to fetch notifications: ${error.message}`);
   }
 }
-
-
-
-// export async function getNotifications(page = 1, userId, filter = 'all') {
-//   try {
-//     console.log(`getNotifications called with page=${page}, userId=${userId}, filter=${filter}`);
-    
-//     if (!userId) {
-//       console.error('userId is undefined');
-//       throw new Error('userId is undefined');
-//     }
-
-//     const user = await User.findById(userId).select('role username');
-//     if (!user) {
-//       console.error(`User not found for userId: ${userId}`);
-//       throw new Error('User not found');
-//     }
-//     console.log(`User found: ${user.username}, role: ${user.role}`);
-
-//     let query = { deleted: false };
-
-//     if (user.role === 'admin') {
-//       if (filter === 'parking') {
-//         query.$or = [
-//           { recipients: userId, type: { $in: ['parking_booking', 'parking_cancellation'] } },
-//           { type: 'important', message: { $regex: 'parking', $options: 'i' } }
-//         ];
-//       } else if (filter === 'seating') {
-//         query.$or = [
-//           { recipients: userId, type: { $in: ['seat_booking', 'seat_cancellation'] } },
-//           { type: 'important', message: { $regex: 'seat', $options: 'i' } }
-//         ];
-//       } else if (filter === 'announcements') {
-//         query.type = 'admin_announcement';
-//       } else {
-//         query.$or = [
-//           { recipients: userId },
-//           { type: 'important' }
-//         ];
-//       }
-//     } else {
-//       query.recipients = userId;
-//       if (filter === 'parking') {
-//         query.type = { $in: ['parking_booking', 'parking_cancellation'] };
-//       } else if (filter === 'seating') {
-//         query.type = { $in: ['seat_booking', 'seat_cancellation'] };
-//       } else if (filter === 'announcements') {
-//         query.type = 'admin_announcement';
-//       }
-//     }
-
-//     console.log('Query:', JSON.stringify(query));
-//     const total = await Notification.countDocuments(query);
-//     console.log('Total notifications for filter', filter, ':', total);
-
-//     // Fetch all notifications without a limit
-//     const notifications = await Notification.find(query)
-//       .sort({ createdAt: -1 })
-//       .populate({
-//         path: 'bookingId',
-//         select: 'type details date',
-//         strictPopulate: false
-//       });
-
-//     console.log('Fetched notifications for filter', filter, ':', notifications.length);
-//     if (notifications.length === 0) {
-//       console.warn(`No notifications found for filter '${filter}' and userId '${userId}'`);
-//     } else {
-//       console.log('Notifications:', JSON.stringify(notifications, null, 2));
-//     }
-
-//     return {
-//       notifications,
-//       total,
-//       page: parseInt(page),
-//       totalPages: Math.ceil(total / 10) || 1 // Assuming 10 notifications per page for frontend
-//     };
-//   } catch (error) {
-//     console.error('Error in getNotifications:', error.message, error.stack);
-//     throw new Error(`Failed to fetch notifications: ${error.message}`);
-//   }
-// }
-
-// Parking booking notifications
 
 export async function createParkingBookingNotifications(parkingSlot, latestBooking) {
   try {
@@ -408,21 +338,29 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
   }
 }
 
-// Seating booking notifications
+
+
+
 export async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
   try {
-    console.log(`🪑 Processing seating booking: ${latestBooking.userName} -> Seat ${latestBooking.seatId}`);
+    console.log(`🪑 Processing seating booking: ${seatingRecord.userName} -> Seat ${latestBooking.seatId}`);
 
-    const bookingId = `${seatingRecord._id}-${latestBooking.date}-${latestBooking.entryTime}-${latestBooking.userName}`;
+    // Use the actual bookingId from the booking record
+    const bookingId = latestBooking.bookingId;
     if (processedBookingIds.has(bookingId)) {
       console.log(`🪑 Booking ${bookingId} already processed, skipping...`);
       return null;
     }
 
-    const user = await User.findOne({ username: latestBooking.userName }).select('username email notificationPreferences firstName lastName');
+    if (!seatingRecord.userName) {
+      console.error(`❌ userName is undefined in seatingRecord`);
+      throw new Error(`userName is undefined in seatingRecord`);
+    }
+
+    const user = await User.findOne({ username: seatingRecord.userName }).select('username email notificationPreferences firstName lastName');
     if (!user) {
-      console.error(`❌ User not found: ${latestBooking.userName}`);
-      throw new Error(`User not found: ${latestBooking.userName}`);
+      console.error(`❌ User not found: ${seatingRecord.userName}`);
+      throw new Error(`User not found: ${seatingRecord.userName}`);
     }
 
     const preferences = user.notificationPreferences || {};
@@ -512,24 +450,37 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
 // Booking reminder emails
 export async function sendBookingReminderEmails() {
   try {
-    console.log('⏰ Sending booking reminder emails...');
-    const tomorrow = new Date();
+    console.log('⏰ Sending booking reminder emails (6 hours before)...');
+    const now = new Date();
+    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
+    const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
     const tomorrowEnd = new Date(tomorrow);
     tomorrowEnd.setHours(23, 59, 59, 999);
 
+    // Helper function to parse time string (e.g., "14:30") to hours and minutes
+    const parseTime = (timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return { hours, minutes };
+    };
+
     // Parking bookings
     const parkingSlots = await ParkingSlot.find({
       'bookings.date': {
-        $gte: tomorrow.toISOString().split('T')[0],
+        $gte: now.toISOString().split('T')[0],
         $lte: tomorrowEnd.toISOString().split('T')[0]
       }
     });
 
     for (const slot of parkingSlots) {
       for (const booking of slot.bookings) {
-        if (booking.date === tomorrow.toISOString().split('T')[0]) {
+        const bookingDate = new Date(booking.date);
+        const { hours, minutes } = parseTime(booking.entryTime);
+        bookingDate.setHours(hours, minutes, 0, 0);
+        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60); // Time diff in hours
+
+        if (timeDiff > 5.5 && timeDiff <= 6.5) { // Within 6-hour window (±30 minutes for flexibility)
           const user = await User.findOne({ username: booking.userName }).select('username email notificationPreferences');
           if (!user) {
             console.warn(`⚠️ User not found for parking booking: ${booking.userName}`);
@@ -542,7 +493,7 @@ export async function sendBookingReminderEmails() {
               await sendEmail({
                 to: user.email,
                 subject: 'Parking Booking Reminder',
-                message: `Reminder: Your parking slot ${slot.slotNumber} on Floor ${slot.floor} is booked for tomorrow, ${booking.date}, from ${booking.entryTime} to ${booking.exitTime}`
+                message: `Reminder: Your parking slot ${slot.slotNumber} on Floor ${slot.floor} is booked for ${booking.date} from ${booking.entryTime} to ${booking.exitTime}. Your booking starts in approximately 6 hours.`
               });
               console.log(`📧 Reminder email sent to user: ${user.email}`);
             } catch (emailError) {
@@ -558,14 +509,19 @@ export async function sendBookingReminderEmails() {
     // Seating bookings
     const seatingRecords = await SeatingSlots.find({
       'bookings.date': {
-        $gte: tomorrow.toISOString().split('T')[0],
+        $gte: now.toISOString().split('T')[0],
         $lte: tomorrowEnd.toISOString().split('T')[0]
       }
     });
 
     for (const record of seatingRecords) {
       for (const booking of record.bookings) {
-        if (booking.date === tomorrow.toISOString().split('T')[0]) {
+        const bookingDate = new Date(booking.date);
+        const { hours, minutes } = parseTime(booking.entryTime);
+        bookingDate.setHours(hours, minutes, 0, 0);
+        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60); // Time diff in hours
+
+        if (timeDiff > 5.5 && timeDiff <= 6.5) { // Within 6-hour window (±30 minutes for flexibility)
           const user = await User.findOne({ username: booking.userName }).select('username email notificationPreferences');
           if (!user) {
             console.warn(`⚠️ User not found for seating booking: ${booking.userName}`);
@@ -578,7 +534,7 @@ export async function sendBookingReminderEmails() {
               await sendEmail({
                 to: user.email,
                 subject: 'Seat Booking Reminder',
-                message: `Reminder: Your seat ${booking.seatId} on Floor ${booking.floor} is booked for tomorrow, ${booking.date}, from ${booking.entryTime} to ${booking.exitTime}`
+                message: `Reminder: Your seat ${booking.seatId} on Floor ${booking.floor} is booked for ${booking.date} from ${booking.entryTime} to ${booking.exitTime}. Your booking starts in approximately 6 hours.`
               });
               console.log(`📧 Reminder email sent to user: ${user.email}`);
             } catch (emailError) {
@@ -591,9 +547,9 @@ export async function sendBookingReminderEmails() {
       }
     }
 
-    console.log('✅ Finished sending booking reminder emails');
+    console.log('✅ Finished sending 6-hour booking reminder emails');
   } catch (error) {
-    console.error('❌ Error sending booking reminder emails:', error.message, error.stack);
+    console.error('❌ Error sending 6-hour booking reminder emails:', error.message, error.stack);
     throw error;
   }
 }
@@ -604,25 +560,6 @@ export async function createAnnouncementNotifications(announcement) {
     console.log(`📢 Processing announcement: ${announcement.message}`);
 
     const users = await User.find({}).select('username email notificationPreferences _id');
-    const userIds = users
-      .filter(user => user.notificationPreferences?.adminAnnouncements?.inApp === true)
-      .map(user => user._id);
-    let notification = null;
-
-    if (userIds.length > 0) {
-      notification = new Notification({
-        recipients: userIds,
-        title: 'Admin Announcement',
-        message: announcement.message,
-        type: 'admin_announcement',
-        bookingId: null,
-        category: 'announcement'
-      });
-      await notification.save();
-      console.log(`✅ Announcement notification created for ${userIds.length} users: ${userIds.join(', ')}`);
-    } else {
-      console.log(`⛔ No in-app announcement notification created: no users with adminAnnouncements.inApp=true`);
-    }
 
     for (const user of users) {
       const preferences = user.notificationPreferences || {};
@@ -643,9 +580,9 @@ export async function createAnnouncementNotifications(announcement) {
       }
     }
 
-    return notification;
+    return null;
   } catch (error) {
-    console.error('❌ Error creating announcement notifications:', error.message, error.stack);
+    console.error('❌ Error sending announcement emails:', error.message, error.stack);
     throw error;
   }
 }
@@ -825,11 +762,34 @@ export async function updateNotificationPreferences(userId, preferences) {
   }
 }
 
+// Delete all notifications in database (hard delete)
+export async function deleteAllNotificationsInDatabase() {
+  try {
+    console.log('🗑️ Starting hard deletion of all notifications in database...');
+    
+    const result = await Notification.deleteMany({});
+    
+    console.log(`✅ Successfully deleted ${result.deletedCount} notifications from database`);
+    
+    // Clear processedBookingIds to prevent stale references
+    processedBookingIds.clear();
+    console.log('✅ Cleared processedBookingIds set');
+    
+    return {
+      deletedCount: result.deletedCount,
+      message: `Successfully deleted ${result.deletedCount} notifications`
+    };
+  } catch (error) {
+    console.error('❌ Error deleting all notifications:', error.message, error.stack);
+    throw new Error(`Failed to delete notifications: ${error.message}`);
+  }
+}
+
 // Initialize notification system
 export function initializeNotificationSystem() {
   console.log('🚀 Initializing notification system...');
-  cron.schedule('0 8 * * *', () => {
-    console.log('⏰ Running daily booking reminder email job...');
+  cron.schedule('*/30 * * * *', () => {
+    console.log('⏰ Running 6-hour booking reminder email job...');
     sendBookingReminderEmails();
   }, {
     timezone: 'Asia/Kolkata'

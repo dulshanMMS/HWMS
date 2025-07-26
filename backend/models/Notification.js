@@ -25,17 +25,13 @@ const notificationSchema = new mongoose.Schema({
       'parking_cancellation',
       'team_booking',
       'team_cancellation',
-      'important'
+      'important',
+      'admin_announcement'
     ],
     default: 'info',
     index: true
   },
-  // bookingId: {
-  //   type: mongoose.Schema.Types.ObjectId,
-  //   //ref: 'Booking',
-  //   index: true,
-  //   sparse: true
-
+  
   bookingId: {
     type: String, // Changed from ObjectId to String
     index: true,

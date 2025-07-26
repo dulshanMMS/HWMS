@@ -1,4 +1,5 @@
 import Announcement from "../models/Announcement.js";
+import { createAnnouncementNotifications } from "../services/notificationService.js"; // Import the function
 
 export const createAnnouncement = async (req, res) => {
   try {
@@ -14,11 +15,18 @@ export const createAnnouncement = async (req, res) => {
     const newAnnouncement = new Announcement({
       message,
       sender: req.user._id,
+      type: 'announcement',
+      read: false,
     });
 
     await newAnnouncement.save();
+    console.log(`✅ Announcement created: ${newAnnouncement._id}`);
 
-    res.status(201).json({ message: "Announcement saved successfully" });
+    // Trigger notifications (in-app and email)
+   createAnnouncementNotifications(newAnnouncement);
+    console.log(`✅ Notifications triggered for announcement: ${newAnnouncement._id}`);
+
+    res.status(201).json({ message: "Announcement saved successfully", announcement: newAnnouncement });
   } catch (err) {
     console.error("❌ Error saving announcement:", err);
     res.status(500).json({ error: "Server error" });

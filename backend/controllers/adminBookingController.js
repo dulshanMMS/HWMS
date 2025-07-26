@@ -1,7 +1,7 @@
-// controllers/adminBookingController.js
 import SeatingSlots from "../models/SeatingSlots.js";
 import User from "../models/User.js";
 import Team from "../models/Team.js";
+import { createBookingNotifications, createCancellationNotifications } from "../services/notificationService.js";
 
 // Admin booking controller
 export const bookSeatForAdmin = async (req, res) => {
@@ -45,7 +45,7 @@ export const bookSeatForAdmin = async (req, res) => {
     // Add booking under admin's name
     const bookingId = `${userName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
-    adminRecord.bookings.push({
+    const newBooking = {
       bookingId,
       areaId: bookingData.roomId,
       floor: bookingData.floor,
@@ -55,12 +55,16 @@ export const bookSeatForAdmin = async (req, res) => {
       seatId: seatId,
       bookedAt: new Date(),
       bookedBy: 'admin'
-    });
+    };
     
+    adminRecord.bookings.push(newBooking);
     adminRecord.totalBookings = adminRecord.bookings.length;
     await adminRecord.save();
     
     console.log(`✅ Booking created under admin's name: ${userName}, bookingId: ${bookingId}`);
+    
+    // Create booking notifications
+     createBookingNotifications('seating', adminRecord, newBooking);
     
     res.json({
       success: true,
@@ -94,6 +98,9 @@ export const unbookSeatForAdmin = async (req, res) => {
     });
     
     let bookingFound = false;
+    let user;
+    let bookingToRemove;
+    
     for (const record of userRecords) {
       const bookingIndex = record.bookings.findIndex(booking => 
         booking.seatId === seatId && 
@@ -102,12 +109,16 @@ export const unbookSeatForAdmin = async (req, res) => {
       );
       
       if (bookingIndex !== -1) {
-        const booking = record.bookings[bookingIndex];
+        bookingToRemove = record.bookings[bookingIndex];
+        user = await User.findOne({ username: record.userName });
+        if (!user) {
+          throw new Error(`User not found for username: ${record.userName}`);
+        }
         record.bookings.splice(bookingIndex, 1);
         record.totalBookings = record.bookings.length;
         await record.save();
         bookingFound = true;
-        console.log(`✅ Booking removed: ${seatId} (booked by: ${booking.bookedBy || 'user'})`);
+        console.log(`✅ Booking removed: ${seatId} (booked by: ${bookingToRemove.bookedBy || 'user'})`);
         break;
       }
     }
@@ -118,6 +129,16 @@ export const unbookSeatForAdmin = async (req, res) => {
         message: 'Booking not found' 
       });
     }
+    
+    // Create cancellation notifications
+     createCancellationNotifications({
+      userId: user._id.toString(),
+      slotNumber: bookingToRemove.seatId,
+      floor: bookingToRemove.floor,
+      type: 'seat',
+      date: date,
+      bookingId: bookingToRemove.bookingId
+    });
     
     res.json({
       success: true,
