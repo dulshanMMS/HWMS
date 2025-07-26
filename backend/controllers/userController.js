@@ -74,7 +74,7 @@ export const updateUserProfile = async (req, res) => {
 };
 
 
-// Maleesha- For AdminTeamManagement
+// For AdminTeamManagement  ----------------------------------Maleesha
 export const getUsers = async (req, res) => {
   try {
     const { teamId } = req.query;
@@ -93,6 +93,26 @@ export const getUsers = async (req, res) => {
   } catch (error) {
     console.error("Failed to get users:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Change user into an admin ----------------------------------Maleesha
+export const updateUserRole = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const updatedUser = await User.findByIdAndUpdate(userId, { role: "admin" }, { new: true });
+    res.status(200).json({ success: true, user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to update role" });
+  }
+};
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.json({ success: true, users });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 

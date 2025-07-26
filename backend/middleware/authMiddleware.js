@@ -68,4 +68,14 @@ export const authenticateUser = async (req, res, next) => {
 };
 
 
+export const verifyAdmin = (req, res, next) => {
+  // Assuming user is attached to req from auth middleware
+  if (req.user && req.user.role === "admin") {
+    next();
+  } else {
+    res.status(403).json({ success: false, message: "Access denied. Admins only." });
+  }
+};
+
+
 export default verifyToken;

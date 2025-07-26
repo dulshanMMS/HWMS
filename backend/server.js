@@ -30,6 +30,7 @@ import userRoutes from "./routes/user.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import bookingViewRoutes from './routes/bookingViewRoutes.js';
 import announcementRoutes from "./routes/announcementRoutes.js";
+import emailRoutes from './routes/emailRoutes.js';
 
 import messageRoutes from './routes/messageRoutes.js';
 import { socketController } from './controllers/socketController.js';
@@ -70,6 +71,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
+app.use('/api/email', emailRoutes);
 
 app.use("/api/ratings", ratingRoutes); // New rating routes
 
