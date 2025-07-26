@@ -25,7 +25,8 @@ const notificationSchema = new mongoose.Schema({
       'parking_cancellation',
       'team_booking',
       'team_cancellation',
-      'important'
+      'important',
+      'admin_announcement'
     ],
     default: 'info',
     index: true

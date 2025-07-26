@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
 import ParkingSlot from '../models/ParkingSlots.js';
@@ -127,8 +126,6 @@ export async function deleteAllNotifications(userId) {
   }, { deleted: true });
 }
 
-
-
 export async function deleteNotification(notificationId, userId) {
   try {
     if (!mongoose.Types.ObjectId.isValid(notificationId)) {
@@ -156,8 +153,6 @@ export async function deleteNotification(notificationId, userId) {
     throw error;
   }
 }
-
-
 
 // Fetch notifications
 export async function getNotifications(page = 1, limit = 10, userId, filter = 'all') {
@@ -242,7 +237,6 @@ export async function getNotifications(page = 1, limit = 10, userId, filter = 'a
     throw new Error(`Failed to fetch notifications: ${error.message}`);
   }
 }
-
 
 export async function createParkingBookingNotifications(parkingSlot, latestBooking) {
   try {
@@ -343,7 +337,6 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
     throw error;
   }
 }
-
 
 export async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
   try {
@@ -446,7 +439,6 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
   }
 }
 
-
 // Booking reminder emails
 export async function sendBookingReminderEmails() {
   try {
@@ -542,25 +534,6 @@ export async function createAnnouncementNotifications(announcement) {
     console.log(`📢 Processing announcement: ${announcement.message}`);
 
     const users = await User.find({}).select('username email notificationPreferences _id');
-    const userIds = users
-      .filter(user => user.notificationPreferences?.adminAnnouncements?.inApp === true)
-      .map(user => user._id);
-    let notification = null;
-
-    if (userIds.length > 0) {
-      notification = new Notification({
-        recipients: userIds,
-        title: 'Admin Announcement',
-        message: announcement.message,
-        type: 'admin_announcement',
-        bookingId: null,
-        category: 'announcement'
-      });
-      await notification.save();
-      console.log(`✅ Announcement notification created for ${userIds.length} users: ${userIds.join(', ')}`);
-    } else {
-      console.log(`⛔ No in-app announcement notification created: no users with adminAnnouncements.inApp=true`);
-    }
 
     for (const user of users) {
       const preferences = user.notificationPreferences || {};
@@ -581,9 +554,9 @@ export async function createAnnouncementNotifications(announcement) {
       }
     }
 
-    return notification;
+    return null;
   } catch (error) {
-    console.error('❌ Error creating announcement notifications:', error.message, error.stack);
+    console.error('❌ Error sending announcement emails:', error.message, error.stack);
     throw error;
   }
 }
