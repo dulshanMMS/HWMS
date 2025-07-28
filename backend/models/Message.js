@@ -118,12 +118,17 @@ const ConversationSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  teamId: String
+  teamId: String,
+  deletedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }]
 }, {
   timestamps: true
-});
+}
+);
 
-ConversationSchema.methods.updateLastMessage = function(messageData) {
+ConversationSchema.methods.updateLastMessage = function (messageData) {
   this.lastMessage = {
     content: messageData.content,
     sender: messageData.senderName,

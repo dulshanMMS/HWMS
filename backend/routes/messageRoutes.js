@@ -7,7 +7,8 @@ import {
   createOrGetConversation,
   addReaction,
   deleteMessage,
-  getUnreadCount
+  getUnreadCount,
+  deleteConversation
 } from '../controllers/messageController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 
@@ -36,5 +37,8 @@ router.delete('/messages/:messageId', authenticateUser, deleteMessage);
 
 // GET /api/messages/unread-count - Get unread message count
 router.get('/unread-count', authenticateUser, getUnreadCount);
+
+// DELETE /api/messages/conversations/:conversationId - Delete a conversation
+router.delete('/conversations/:conversationId', authenticateUser, deleteConversation);
 
 export default router;

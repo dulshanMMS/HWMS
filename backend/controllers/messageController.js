@@ -8,7 +8,8 @@ export const getUserConversations = async (req, res) => {
     const userId = req.user.id;
 
     const conversations = await Conversation.find({
-      'participants.userId': userId
+      'participants.userId': userId,
+      'deletedBy': { $ne: userId }
     })
       .populate('participants.userId', 'firstName lastName username profilePhoto teamId')
       .sort({ updatedAt: -1 })
@@ -247,9 +248,36 @@ export const createOrGetConversation = async (req, res) => {
       });
 
       if (existingConversation) {
+        // If current user had deleted this conversation, restore it
+        if (existingConversation.deletedBy.includes(currentUserId)) {
+          existingConversation.deletedBy = existingConversation.deletedBy.filter(
+            id => id.toString() !== currentUserId
+          );
+          await existingConversation.save();
+        }
+
+        // Format existing conversation for response with correct displayName
+        const formattedExistingConversation = {
+          _id: existingConversation._id,
+          conversationType: existingConversation.conversationType,
+          participants: existingConversation.participants,
+          displayName: existingConversation.conversationType === 'group'
+            ? existingConversation.groupName
+            : existingConversation.participants
+              .filter(p => p.userId.toString() !== currentUserId)
+              .map(p => `${p.firstName} ${p.lastName}`)
+              .join(', '),
+          lastMessage: existingConversation.lastMessage,
+          totalMessages: existingConversation.totalMessages || 0,
+          updatedAt: existingConversation.updatedAt || new Date(),
+          isOnline: existingConversation.participants.some(p =>
+            p.userId.toString() !== currentUserId && p.isOnline
+          )
+        };
+
         return res.json({
           success: true,
-          conversation: existingConversation,
+          conversation: formattedExistingConversation,
           isNew: false
         });
       }
@@ -282,11 +310,32 @@ export const createOrGetConversation = async (req, res) => {
 
     await newConversation.save();
 
+    // Format new conversation for response with correct displayName
+    const formattedNewConversation = {
+      _id: newConversation._id,
+      conversationType: newConversation.conversationType,
+      participants: newConversation.participants,
+      displayName: newConversation.conversationType === 'group'
+        ? newConversation.groupName
+        : newConversation.participants
+          .filter(p => p.userId.toString() !== currentUserId)
+          .map(p => `${p.firstName} ${p.lastName}`)
+          .join(', '),
+      lastMessage: newConversation.lastMessage,
+      totalMessages: newConversation.totalMessages || 0,
+      updatedAt: newConversation.updatedAt || new Date(),
+      isOnline: newConversation.participants.some(p =>
+        p.userId.toString() !== currentUserId && p.isOnline
+      )
+    };
+
     res.status(201).json({
       success: true,
-      conversation: newConversation,
+      conversation: formattedNewConversation,
       isNew: true
     });
+
+
   } catch (error) {
     console.error('Error creating conversation:', error);
     res.status(500).json({
@@ -411,5 +460,41 @@ export const getUnreadCount = async (req, res) => {
       success: false,
       error: 'Failed to get unread count'
     });
+  }
+};
+
+// Delete conversation for current user
+export const deleteConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: 'Conversation not found' });
+    }
+
+    // Check if user is participant
+    if (!conversation.participants.some(p => p.userId.toString() === userId)) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Add user to deletedBy array if not already there
+    if (!conversation.deletedBy.includes(userId)) {
+      conversation.deletedBy.push(userId);
+    }
+
+    // If all participants have deleted, permanently delete conversation and messages
+    if (conversation.deletedBy.length === conversation.participants.length) {
+      await Message.deleteMany({ conversationId });
+      await Conversation.findByIdAndDelete(conversationId);
+    } else {
+      await conversation.save();
+    }
+
+    res.json({ success: true, message: 'Conversation deleted' });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete conversation' });
   }
 };
