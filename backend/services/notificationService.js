@@ -6,6 +6,7 @@ import User from '../models/User.js';
 import Announcement from '../models/Announcement.js';
 import sendEmail from './emailService.js';
 import cron from 'node-cron';
+import { io } from '../server.js'; // Import io for WebSocket emission
 
 // Track processed booking IDs to prevent duplicates
 const processedBookingIds = new Set();
@@ -31,13 +32,11 @@ export async function markAsRead(notificationId, userId) {
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
   
-  // Allow admins to mark 'important' notifications as read without checking recipients
   if (user.role === 'admin' && notification.type === 'important') {
     notification.read = true;
     return notification.save();
   }
   
-  // For non-important notifications or non-admins, check recipients
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
@@ -54,13 +53,11 @@ export async function markAsUnread(notificationId, userId) {
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
   
-  // Allow admins to mark 'important' notifications as unread without checking recipients
   if (user.role === 'admin' && notification.type === 'important') {
     notification.read = false;
     return notification.save();
   }
   
-  // For non-important notifications or non-admins, check recipients
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
@@ -73,7 +70,6 @@ export async function markAllAsRead(userId) {
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
   
-  // For admins, mark all 'important' and their own notifications as read
   if (user.role === 'admin') {
     return Notification.updateMany(
       {
@@ -86,7 +82,6 @@ export async function markAllAsRead(userId) {
     );
   }
   
-  // For non-admins, mark only their own notifications
   return Notification.updateMany({ 
     recipients: { $in: [userId] }, 
     read: false, 
@@ -98,7 +93,6 @@ export async function markAllAsUnread(userId) {
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
   
-  // For admins, mark all 'important' and their own notifications as unread
   if (user.role === 'admin') {
     return Notification.updateMany(
       {
@@ -111,7 +105,6 @@ export async function markAllAsUnread(userId) {
     );
   }
   
-  // For non-admins, mark only their own notifications
   return Notification.updateMany({ 
     recipients: { $in: [userId] }, 
     read: true, 
@@ -278,6 +271,7 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
       });
       await userNotification.save();
       console.log(`✅ User notification created for ${user.username}: ${userNotification._id}`);
+      io.emit('notificationReceived', userNotification); // Emit via WebSocket
     } else {
       console.log(`⛔ In-app notification skipped for ${user.username} due to preferences: bookingConfirmation.inApp=${preferences.bookingConfirmation?.inApp}`);
     }
@@ -310,6 +304,7 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
       });
       await adminNotification.save();
       console.log(`✅ Single admin notification saved with recipients: ${admins.length}`);
+      io.emit('notificationReceived', adminNotification); // Emit via WebSocket
     } else {
       console.log(`⛔ Admin in-app notification skipped: no admins with adminAnnouncements.inApp=true`);
     }
@@ -338,14 +333,10 @@ export async function createParkingBookingNotifications(parkingSlot, latestBooki
   }
 }
 
-
-
-
 export async function createSeatingBookingNotifications(seatingRecord, latestBooking) {
   try {
     console.log(`🪑 Processing seating booking: ${seatingRecord.userName} -> Seat ${latestBooking.seatId}`);
 
-    // Use the actual bookingId from the booking record
     const bookingId = latestBooking.bookingId;
     if (processedBookingIds.has(bookingId)) {
       console.log(`🪑 Booking ${bookingId} already processed, skipping...`);
@@ -387,6 +378,7 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
       });
       await userNotification.save();
       console.log(`✅ User notification created for ${user.username}: ${userNotification._id}`);
+      io.emit('notificationReceived', userNotification); // Emit via WebSocket
     } else {
       console.log(`⛔ In-app notification skipped for ${user.username} due to preferences: bookingConfirmation.inApp=${preferences.bookingConfirmation?.inApp}`);
     }
@@ -419,6 +411,7 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
       });
       await adminNotification.save();
       console.log(`✅ Single admin notification saved with recipients: ${admins.length}`);
+      io.emit('notificationReceived', adminNotification); // Emit via WebSocket
     } else {
       console.log(`⛔ Admin in-app notification skipped: no admins with adminAnnouncements.inApp=true`);
     }
@@ -447,25 +440,101 @@ export async function createSeatingBookingNotifications(seatingRecord, latestBoo
   }
 }
 
+// Create booking notifications
+export async function createBookingNotifications(type, bookingRecord, latestBooking) {
+  try {
+    if (type === 'parking') {
+      return await createParkingBookingNotifications(bookingRecord, latestBooking);
+    } else if (type === 'seating') {
+      return await createSeatingBookingNotifications(bookingRecord, latestBooking);
+    } else if (type === 'feedback_reply') {
+      console.log(`📝 Processing feedback reply for userId: ${bookingRecord.userId}`);
+
+      const bookingId = `${bookingRecord._id}-feedback_reply`;
+      if (processedBookingIds.has(bookingId)) {
+        console.log(`📝 Feedback reply ${bookingId} already processed, skipping...`);
+        return null;
+      }
+
+      const user = await User.findById(bookingRecord.userId).select('username email notificationPreferences firstName lastName');
+      if (!user) {
+        console.error(`❌ User not found: ${bookingRecord.userId}`);
+        throw new Error(`User not found: ${bookingRecord.userId}`);
+      }
+
+      const preferences = user.notificationPreferences || {};
+      console.log(`📋 User preferences for ${user.username}: ${JSON.stringify(preferences)}`);
+      
+      if (!preferences.feedbackReply) {
+        console.warn(`⚠️ feedbackReply preferences missing for ${user.username}, using defaults: { email: false, inApp: true }`);
+        preferences.feedbackReply = { email: false, inApp: true };
+      }
+
+      let userNotification = null;
+      if (preferences.feedbackReply?.inApp === true) {
+        userNotification = new Notification({
+          recipients: [user._id],
+          title: 'Feedback Reply',
+          message: `Admin response: ${latestBooking.adminReply}`,
+          type: 'feedback_reply',
+          bookingId,
+          category: 'feedback',
+          rating: bookingRecord.rating, // Include rating
+          feedback: bookingRecord.feedback, // Include original feedback
+          bookingType: bookingRecord.bookingType // Include booking type
+        });
+        await userNotification.save();
+        console.log(`✅ Feedback reply notification created for ${user.username}: ${userNotification._id}`);
+        io.emit('notificationReceived', userNotification); // Emit via WebSocket
+      } else {
+        console.log(`⛔ Feedback reply in-app notification skipped for ${user.username} due to preferences: feedbackReply.inApp=${preferences.feedbackReply?.inApp}`);
+      }
+
+      if (user.email && preferences.feedbackReply?.email === true) {
+        try {
+          await sendEmail({
+            to: user.email,
+            subject: 'Feedback Reply',
+            message: `Thank you for your feedback on your ${bookingRecord.bookingType} booking. Admin response: ${latestBooking.adminReply}`
+          });
+          console.log(`📧 Feedback reply email sent to user: ${user.email}`);
+        } catch (emailError) {
+          console.error(`❌ Failed to send feedback reply email to user ${user.email}: ${emailError.message}`);
+        }
+      } else {
+        console.log(`⛔ Feedback reply email not sent to ${user.email || 'no email'}: feedbackReply.email=${preferences.feedbackReply?.email}`);
+      }
+
+      processedBookingIds.add(bookingId);
+      console.log(`✅ Feedback reply ${bookingId} marked as processed`);
+
+      return { userNotification };
+    } else {
+      throw new Error(`Unknown booking type: ${type}`);
+    }
+  } catch (error) {
+    console.error('❌ Error creating booking notifications:', error.message, error.stack);
+    throw error;
+  }
+}
+
 // Booking reminder emails
 export async function sendBookingReminderEmails() {
   try {
     console.log('⏰ Sending booking reminder emails (6 hours before)...');
     const now = new Date();
-    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
+    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000);
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
     const tomorrowEnd = new Date(tomorrow);
     tomorrowEnd.setHours(23, 59, 59, 999);
 
-    // Helper function to parse time string (e.g., "14:30") to hours and minutes
     const parseTime = (timeStr) => {
       const [hours, minutes] = timeStr.split(':').map(Number);
       return { hours, minutes };
     };
 
-    // Parking bookings
     const parkingSlots = await ParkingSlot.find({
       'bookings.date': {
         $gte: now.toISOString().split('T')[0],
@@ -478,9 +547,9 @@ export async function sendBookingReminderEmails() {
         const bookingDate = new Date(booking.date);
         const { hours, minutes } = parseTime(booking.entryTime);
         bookingDate.setHours(hours, minutes, 0, 0);
-        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60); // Time diff in hours
+        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-        if (timeDiff > 5.5 && timeDiff <= 6.5) { // Within 6-hour window (±30 minutes for flexibility)
+        if (timeDiff > 5.5 && timeDiff <= 6.5) {
           const user = await User.findOne({ username: booking.userName }).select('username email notificationPreferences');
           if (!user) {
             console.warn(`⚠️ User not found for parking booking: ${booking.userName}`);
@@ -506,7 +575,6 @@ export async function sendBookingReminderEmails() {
       }
     }
 
-    // Seating bookings
     const seatingRecords = await SeatingSlots.find({
       'bookings.date': {
         $gte: now.toISOString().split('T')[0],
@@ -519,9 +587,9 @@ export async function sendBookingReminderEmails() {
         const bookingDate = new Date(booking.date);
         const { hours, minutes } = parseTime(booking.entryTime);
         bookingDate.setHours(hours, minutes, 0, 0);
-        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60); // Time diff in hours
+        const timeDiff = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-        if (timeDiff > 5.5 && timeDiff <= 6.5) { // Within 6-hour window (±30 minutes for flexibility)
+        if (timeDiff > 5.5 && timeDiff <= 6.5) {
           const user = await User.findOne({ username: booking.userName }).select('username email notificationPreferences');
           if (!user) {
             console.warn(`⚠️ User not found for seating booking: ${booking.userName}`);
@@ -626,6 +694,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
       console.log(`🚫 About to save user notification for ${user.username}:`, JSON.stringify(userNotification));
       await userNotification.save();
       console.log(`✅ Cancellation notification created in-app for user ${user.username}: ${userNotification._id}`);
+      io.emit('notificationReceived', userNotification); // Emit via WebSocket
     } else {
       console.log(`⛔ Cancellation in-app notification skipped for ${user.username} due to preferences: cancellationAlert.inApp=${preferences.cancellationAlert?.inApp}`);
     }
@@ -661,6 +730,7 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
       console.log(`🚫 About to save admin notification:`, JSON.stringify(adminNotification));
       await adminNotification.save();
       console.log(`✅ Single admin notification saved with recipients: ${adminIds.length}`);
+      io.emit('notificationReceived', adminNotification); // Emit via WebSocket
     } else {
       console.log(`⛔ Admin in-app notification skipped: no admins with adminAnnouncements.inApp=true`);
     }
@@ -690,17 +760,6 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
   }
 }
 
-// Create booking notifications
-export async function createBookingNotifications(type, bookingRecord, latestBooking) {
-  if (type === 'parking') {
-    return await createParkingBookingNotifications(bookingRecord, latestBooking);
-  } else if (type === 'seating') {
-    return await createSeatingBookingNotifications(bookingRecord, latestBooking);
-  } else {
-    throw new Error(`Unknown booking type: ${type}`);
-  }
-}
-
 // Notification preferences
 export async function getNotificationPreferences(userId) {
   try {
@@ -715,7 +774,8 @@ export async function getNotificationPreferences(userId) {
       bookingConfirmation: { email: true, inApp: true },
       cancellationAlert: { email: true, inApp: true },
       adminAnnouncements: { email: true, inApp: true },
-      bookingReminder: { email: true, inApp: true }
+      bookingReminder: { email: true, inApp: true },
+      feedbackReply: { email: true, inApp: true } // Added default for feedbackReply
     };
     
     console.log(`📋 Fetched preferences for user ${user.username} (${userId}): ${JSON.stringify(preferences)}`);
@@ -743,7 +803,8 @@ export async function updateNotificationPreferences(userId, preferences) {
       { 
         notificationPreferences: {
           ...preferences,
-          bookingReminder: { ...preferences.bookingReminder, inApp: true }
+          bookingReminder: { ...preferences.bookingReminder, inApp: true },
+          feedbackReply: { ...preferences.feedbackReply, inApp: true } // Ensure feedbackReply inApp is true
         }
       },
       { new: true }
@@ -771,7 +832,6 @@ export async function deleteAllNotificationsInDatabase() {
     
     console.log(`✅ Successfully deleted ${result.deletedCount} notifications from database`);
     
-    // Clear processedBookingIds to prevent stale references
     processedBookingIds.clear();
     console.log('✅ Cleared processedBookingIds set');
     

@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
@@ -26,18 +25,17 @@ const notificationSchema = new mongoose.Schema({
       'team_booking',
       'team_cancellation',
       'important',
-      'admin_announcement'
+      'admin_announcement',
+      'feedback_reply' // Added new type
     ],
     default: 'info',
     index: true
   },
-  
   bookingId: {
-    type: String, // Changed from ObjectId to String
+    type: String,
     index: true,
     sparse: true,
-    required: false // Explicitly allow null/undefined
-
+    required: false
   },
   read: {
     type: Boolean,
