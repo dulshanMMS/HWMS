@@ -1,4 +1,5 @@
 import Rating from '../models/ratingModel.js';
+import Team from '../models/Team.js'; // Import Team model
 import mongoose from 'mongoose';
 import * as NotificationService from '../services/notificationService.js';
 
@@ -50,10 +51,27 @@ export const getAllFeedback = async (req, res) => {
     if (status) query.status = status;
 
     const feedbacks = await Rating.find(query)
-      .populate('userId', 'fullName username')
+      .populate('userId', 'fullName username teamId') // Changed to teamId
       .sort({ createdAt: -1 });
 
-    res.status(200).json(feedbacks);
+    // Fetch team colors
+    const teamIds = [...new Set(feedbacks.map(f => f.userId?.teamId).filter(Boolean))];
+    const teams = await Team.find({ teamId: { $in: teamIds } }).select('teamId color');
+    const teamColorMap = teams.reduce((map, team) => {
+      map[team.teamId] = team.color;
+      return map;
+    }, {});
+
+    // Add teamColor to each feedback
+    const enhancedFeedbacks = feedbacks.map(feedback => ({
+      ...feedback._doc,
+      userId: feedback.userId ? {
+        ...feedback.userId._doc,
+        teamColor: feedback.userId.teamId ? teamColorMap[feedback.userId.teamId] || 'bg-gray-500' : 'bg-gray-500',
+      } : null,
+    }));
+
+    res.status(200).json(enhancedFeedbacks);
   } catch (error) {
     console.error('Error fetching feedback:', error);
     res.status(500).json({ message: 'Server error' });
@@ -151,8 +169,16 @@ export const exportFeedback = async (req, res) => {
     }
 
     const feedbacks = await Rating.find(query)
-      .populate('userId', 'username fullName team')
+      .populate('userId', 'username fullName teamId') // Changed to teamId
       .sort({ createdAt: -1 });
+
+    // Fetch team names for export
+    const teamIds = [...new Set(feedbacks.map(f => f.userId?.teamId).filter(Boolean))];
+    const teams = await Team.find({ teamId: { $in: teamIds } }).select('teamId teamName');
+    const teamNameMap = teams.reduce((map, team) => {
+      map[team.teamId] = team.teamName;
+      return map;
+    }, {});
 
     const csvData = [
       ['User ID', 'Username', 'Full Name', 'Team', 'Booking Type', 'Rating', 'Feedback', 'Status', 'Admin Reply', 'Created At'],
@@ -160,7 +186,7 @@ export const exportFeedback = async (req, res) => {
         f.userId?._id || 'N/A',
         f.userId?.username || 'N/A',
         f.userId?.fullName || 'N/A',
-        f.userId?.team || 'No Team',
+        f.userId?.teamId ? teamNameMap[f.userId.teamId] || 'No Team' : 'No Team',
         f.bookingType,
         f.rating,
         `"${f.feedback.replace(/"/g, '""')}"`,
