@@ -1,4 +1,4 @@
-// middleware/seatBookingMiddleware.js - Self-booking only version
+// middleware/seatBookingMiddleware.js - Updated with conflict check validation
 import { validateBookingData, validateRouteParams } from "../services/seatValidationService.js";
 
 export const sanitizeSeatBookingInput = (req, res, next) => {
@@ -63,6 +63,69 @@ export const validateBookingInput = (req, res, next) => {
   } catch (error) {
     console.error("Error in validation middleware:", error);
     next();
+  }
+};
+
+// NEW: Validation middleware specifically for conflict checking
+export const validateConflictCheckParams = (req, res, next) => {
+  try {
+    const { userName, date, entryTime, exitTime } = req.body;
+    const errors = [];
+
+    // Validate userName
+    if (!userName || typeof userName !== 'string' || userName.trim() === '') {
+      errors.push('userName is required and must be a non-empty string');
+    }
+
+    // Validate date
+    if (!date) {
+      errors.push('date is required');
+    } else {
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) {
+        errors.push('date must be a valid date format');
+      }
+    }
+
+    // Validate time format (HH:MM)
+    const timeFormatRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    
+    if (!entryTime || !timeFormatRegex.test(entryTime)) {
+      errors.push('entryTime is required and must be in HH:MM format');
+    }
+
+    if (!exitTime || !timeFormatRegex.test(exitTime)) {
+      errors.push('exitTime is required and must be in HH:MM format');
+    }
+
+    // Validate time order
+    if (entryTime && exitTime && timeFormatRegex.test(entryTime) && timeFormatRegex.test(exitTime)) {
+      const entryMinutes = parseInt(entryTime.split(':')[0]) * 60 + parseInt(entryTime.split(':')[1]);
+      const exitMinutes = parseInt(exitTime.split(':')[0]) * 60 + parseInt(exitTime.split(':')[1]);
+      
+      if (exitMinutes <= entryMinutes) {
+        errors.push('exitTime must be after entryTime');
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors
+      });
+    }
+
+    // Sanitize the input
+    req.body.userName = userName.trim();
+    req.body.entryTime = entryTime.trim();
+    req.body.exitTime = exitTime.trim();
+
+    next();
+  } catch (error) {
+    console.error("Error in conflict check validation middleware:", error);
+    return res.status(500).json({
+      error: 'Internal validation error'
+    });
   }
 };
 

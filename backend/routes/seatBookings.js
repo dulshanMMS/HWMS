@@ -1,4 +1,4 @@
-// routes/seatBookings.js - Clean version using controller
+// routes/seatBookings.js - Complete file with conflict check functionality
 import express from "express";
 
 // Regular booking controllers
@@ -23,13 +23,19 @@ import {
   getFloorBookingCount
 } from "../controllers/adminBookingController.js";
 
+// NEW: Conflict check controller
+import {
+  checkUserBookingConflict
+} from "../controllers/conflictCheckController.js";
+
 // Middleware
 import {
   sanitizeSeatBookingInput,
   validateRequiredParams,
   validateQueryParams,
   logSeatBookingOperation,
-  handleSeatBookingErrors
+  handleSeatBookingErrors,
+  validateConflictCheckParams
 } from "../middleware/seatBookingMiddleware.js";
 
 const router = express.Router();
@@ -46,6 +52,12 @@ router.get("/users/:username",
 router.get("/users/team/:teamId", 
   validateRequiredParams(['teamId']),
   getTeamMembers
+);
+
+// ==================== NEW: CONFLICT CHECK ROUTE ====================
+router.post("/check-user-conflict", 
+  validateConflictCheckParams,
+  checkUserBookingConflict
 );
 
 // ==================== BOOKING DISPLAY ROUTES ====================
