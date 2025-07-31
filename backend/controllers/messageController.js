@@ -65,7 +65,7 @@ export const getConversationMessages = async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.id;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
     // Verify user is part of the conversation
@@ -76,6 +76,12 @@ export const getConversationMessages = async (req, res) => {
         error: 'Access denied to this conversation'
       });
     }
+
+    // ✅ ADD: Get total message count for pagination info
+    const totalMessages = await Message.countDocuments({
+      conversationId,
+      isDeleted: false
+    });
 
     const messages = await Message.find({
       conversationId,
@@ -104,13 +110,19 @@ export const getConversationMessages = async (req, res) => {
       }
     );
 
+    // ✅ ADD: Enhanced pagination info
+    const hasMore = skip + messages.length < totalMessages;
+
     res.json({
       success: true,
-      messages: messages.reverse(),
+      messages: messages.reverse(), // Reverse to show oldest first in the response
       pagination: {
         page,
         limit,
-        hasMore: messages.length === limit
+        total: totalMessages,
+        hasMore,
+        totalPages: Math.ceil(totalMessages / limit),
+        currentCount: messages.length
       }
     });
   } catch (error) {

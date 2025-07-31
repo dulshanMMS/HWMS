@@ -7,6 +7,8 @@ import {
   getRecentParkingBookings,
   getUserBookingStats,        // NEW
   getTodayUserBookingStats,   // NEW
+  getTodayBookingsPaginated,
+  getRecentBookingsPaginated
 } from "../controllers/bookingViewController.js";
 
 const router = express.Router();
@@ -34,5 +36,13 @@ router.get("/stats", verifyToken, getUserBookingStats);
 // NEW: Get today's booking statistics for the logged-in user
 // Protected route
 router.get("/stats/today", verifyToken, getTodayUserBookingStats);
+
+// Get today's bookings with pagination
+router.get("/bookings/today", verifyToken, getTodayBookingsPaginated);
+
+// Get recent past bookings with pagination
+router.get("/bookings/recent", verifyToken, getRecentBookingsPaginated);
+
+
 
 export default router;
