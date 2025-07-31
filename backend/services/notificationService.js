@@ -27,21 +27,21 @@
 // export async function markAsRead(notificationId, userId) {
 //   const notification = await Notification.findById(notificationId);
 //   if (!notification) throw new Error('Notification not found');
-  
+
 //   const user = await User.findById(userId).select('role');
 //   if (!user) throw new Error('User not found');
-  
+
 //   // Allow admins to mark 'important' notifications as read without checking recipients
 //   if (user.role === 'admin' && notification.type === 'important') {
 //     notification.read = true;
 //     return notification.save();
 //   }
-  
+
 //   // For non-important notifications or non-admins, check recipients
 //   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
 //     throw new Error('Not authorized');
 //   }
-  
+
 //   notification.read = true;
 //   return notification.save();
 // }
@@ -50,21 +50,21 @@
 // export async function markAsUnread(notificationId, userId) {
 //   const notification = await Notification.findById(notificationId);
 //   if (!notification) throw new Error('Notification not found');
-  
+
 //   const user = await User.findById(userId).select('role');
 //   if (!user) throw new Error('User not found');
-  
+
 //   // Allow admins to mark 'important' notifications as unread without checking recipients
 //   if (user.role === 'admin' && notification.type === 'important') {
 //     notification.read = false;
 //     return notification.save();
 //   }
-  
+
 //   // For non-important notifications or non-admins, check recipients
 //   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
 //     throw new Error('Not authorized');
 //   }
-  
+
 //   notification.read = false;
 //   return notification.save();
 // }
@@ -72,7 +72,7 @@
 // export async function markAllAsRead(userId) {
 //   const user = await User.findById(userId).select('role');
 //   if (!user) throw new Error('User not found');
-  
+
 //   // For admins, mark all 'important' and their own notifications as read
 //   if (user.role === 'admin') {
 //     return Notification.updateMany(
@@ -85,7 +85,7 @@
 //       { read: true }
 //     );
 //   }
-  
+
 //   // For non-admins, mark only their own notifications
 //   return Notification.updateMany({ 
 //     recipients: { $in: [userId] }, 
@@ -97,7 +97,7 @@
 // export async function markAllAsUnread(userId) {
 //   const user = await User.findById(userId).select('role');
 //   if (!user) throw new Error('User not found');
-  
+
 //   // For admins, mark all 'important' and their own notifications as unread
 //   if (user.role === 'admin') {
 //     return Notification.updateMany(
@@ -110,7 +110,7 @@
 //       { read: false }
 //     );
 //   }
-  
+
 //   // For non-admins, mark only their own notifications
 //   return Notification.updateMany({ 
 //     recipients: { $in: [userId] }, 
@@ -158,7 +158,7 @@
 // export async function getNotifications(page = 1, limit = 10, userId, filter = 'all') {
 //   try {
 //     console.log(`getNotifications called with page=${page}, limit=${limit}, userId=${userId}, filter=${filter}`);
-    
+
 //     if (!userId) {
 //       console.error('userId is undefined');
 //       throw new Error('userId is undefined');
@@ -705,24 +705,24 @@
 // export async function getNotificationPreferences(userId) {
 //   try {
 //     const user = await User.findById(userId).select('notificationPreferences username email');
-    
+
 //     if (!user) {
 //       console.error(`❌ User not found for userId: ${userId}`);
 //       throw new Error('User not found');
 //     }
-    
+
 //     const preferences = user.notificationPreferences || {
 //       bookingConfirmation: { email: true, inApp: true },
 //       cancellationAlert: { email: true, inApp: true },
 //       adminAnnouncements: { email: true, inApp: true },
 //       bookingReminder: { email: true, inApp: true }
 //     };
-    
+
 //     console.log(`📋 Fetched preferences for user ${user.username} (${userId}): ${JSON.stringify(preferences)}`);
 //     if (!user.notificationPreferences) {
 //       console.warn(`⚠️ No notificationPreferences found for user ${userId}, using defaults`);
 //     }
-    
+
 //     return preferences;
 //   } catch (error) {
 //     console.error('Error in getNotificationPreferences service:', error);
@@ -748,12 +748,12 @@
 //       },
 //       { new: true }
 //     ).select('notificationPreferences username');
-    
+
 //     if (!user) {
 //       console.error(`❌ User not found for userId: ${userId}`);
 //       throw new Error('User not found');
 //     }
-    
+
 //     console.log(`✅ Updated preferences for user ${user.username} (${userId}): ${JSON.stringify(user.notificationPreferences)}`);
 //     return user.notificationPreferences;
 //   } catch (error) {
@@ -766,15 +766,15 @@
 // export async function deleteAllNotificationsInDatabase() {
 //   try {
 //     console.log('🗑️ Starting hard deletion of all notifications in database...');
-    
+
 //     const result = await Notification.deleteMany({});
-    
+
 //     console.log(`✅ Successfully deleted ${result.deletedCount} notifications from database`);
-    
+
 //     // Clear processedBookingIds to prevent stale references
 //     processedBookingIds.clear();
 //     console.log('✅ Cleared processedBookingIds set');
-    
+
 //     return {
 //       deletedCount: result.deletedCount,
 //       message: `Successfully deleted ${result.deletedCount} notifications`
@@ -812,10 +812,10 @@ const processedBookingIds = new Set();
 
 // Unread count
 export async function getUnreadNotificationCount(userId) {
-  return Notification.countDocuments({ 
-    recipients: { $in: [userId] }, 
-    read: false, 
-    deleted: false 
+  return Notification.countDocuments({
+    recipients: { $in: [userId] },
+    read: false,
+    deleted: false
   });
 }
 
@@ -827,19 +827,19 @@ export async function getAdminUnreadCount() {
 export async function markAsRead(notificationId, userId) {
   const notification = await Notification.findById(notificationId);
   if (!notification) throw new Error('Notification not found');
-  
+
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
-  
+
   if (user.role === 'admin' && notification.type === 'important') {
     notification.read = true;
     return notification.save();
   }
-  
+
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
-  
+
   notification.read = true;
   return notification.save();
 }
@@ -848,19 +848,19 @@ export async function markAsRead(notificationId, userId) {
 export async function markAsUnread(notificationId, userId) {
   const notification = await Notification.findById(notificationId);
   if (!notification) throw new Error('Notification not found');
-  
+
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
-  
+
   if (user.role === 'admin' && notification.type === 'important') {
     notification.read = false;
     return notification.save();
   }
-  
+
   if (!notification.recipients.map(r => r.toString()).includes(userId)) {
     throw new Error('Not authorized');
   }
-  
+
   notification.read = false;
   return notification.save();
 }
@@ -868,7 +868,7 @@ export async function markAsUnread(notificationId, userId) {
 export async function markAllAsRead(userId) {
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
-  
+
   if (user.role === 'admin') {
     return Notification.updateMany(
       {
@@ -880,18 +880,18 @@ export async function markAllAsRead(userId) {
       { read: true }
     );
   }
-  
-  return Notification.updateMany({ 
-    recipients: { $in: [userId] }, 
-    read: false, 
-    deleted: false 
+
+  return Notification.updateMany({
+    recipients: { $in: [userId] },
+    read: false,
+    deleted: false
   }, { read: true });
 }
 
 export async function markAllAsUnread(userId) {
   const user = await User.findById(userId).select('role');
   if (!user) throw new Error('User not found');
-  
+
   if (user.role === 'admin') {
     return Notification.updateMany(
       {
@@ -903,18 +903,18 @@ export async function markAllAsUnread(userId) {
       { read: false }
     );
   }
-  
-  return Notification.updateMany({ 
-    recipients: { $in: [userId] }, 
-    read: true, 
-    deleted: false 
+
+  return Notification.updateMany({
+    recipients: { $in: [userId] },
+    read: true,
+    deleted: false
   }, { read: false });
 }
 
 export async function deleteAllNotifications(userId) {
-  return Notification.updateMany({ 
-    recipients: { $in: [userId] }, 
-    deleted: false 
+  return Notification.updateMany({
+    recipients: { $in: [userId] },
+    deleted: false
   }, { deleted: true });
 }
 
@@ -950,7 +950,7 @@ export async function deleteNotification(notificationId, userId) {
 export async function getNotifications(page = 1, limit = 10, userId, filter = 'all') {
   try {
     console.log(`getNotifications called with page=${page}, limit=${limit}, userId=${userId}, filter=${filter}`);
-    
+
     if (!userId) {
       console.error('userId is undefined');
       throw new Error('userId is undefined');
@@ -1263,7 +1263,7 @@ export async function createBookingNotifications(type, bookingRecord, latestBook
 
       const preferences = user.notificationPreferences || {};
       console.log(`📋 User preferences for ${user.username}: ${JSON.stringify(preferences)}`);
-      
+
       if (!preferences.feedbackReply) {
         console.warn(`⚠️ feedbackReply preferences missing for ${user.username}, using defaults: { email: false, inApp: true }`);
         preferences.feedbackReply = { email: false, inApp: true };
@@ -1563,12 +1563,12 @@ export async function createCancellationNotifications({ userId, slotNumber, floo
 export async function getNotificationPreferences(userId) {
   try {
     const user = await User.findById(userId).select('notificationPreferences username email');
-    
+
     if (!user) {
       console.error(`❌ User not found for userId: ${userId}`);
       throw new Error('User not found');
     }
-    
+
     const preferences = user.notificationPreferences || {
       bookingConfirmation: { email: true, inApp: true },
       cancellationAlert: { email: true, inApp: true },
@@ -1576,12 +1576,12 @@ export async function getNotificationPreferences(userId) {
       bookingReminder: { email: true, inApp: true },
       feedbackReply: { email: true, inApp: true } // Added default for feedbackReply
     };
-    
+
     console.log(`📋 Fetched preferences for user ${user.username} (${userId}): ${JSON.stringify(preferences)}`);
     if (!user.notificationPreferences) {
       console.warn(`⚠️ No notificationPreferences found for user ${userId}, using defaults`);
     }
-    
+
     return preferences;
   } catch (error) {
     console.error('Error in getNotificationPreferences service:', error);
@@ -1599,7 +1599,7 @@ export async function updateNotificationPreferences(userId, preferences) {
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { 
+      {
         notificationPreferences: {
           ...preferences,
           bookingReminder: { ...preferences.bookingReminder, inApp: true },
@@ -1608,12 +1608,12 @@ export async function updateNotificationPreferences(userId, preferences) {
       },
       { new: true }
     ).select('notificationPreferences username');
-    
+
     if (!user) {
       console.error(`❌ User not found for userId: ${userId}`);
       throw new Error('User not found');
     }
-    
+
     console.log(`✅ Updated preferences for user ${user.username} (${userId}): ${JSON.stringify(user.notificationPreferences)}`);
     return user.notificationPreferences;
   } catch (error) {
@@ -1626,14 +1626,14 @@ export async function updateNotificationPreferences(userId, preferences) {
 export async function deleteAllNotificationsInDatabase() {
   try {
     console.log('🗑️ Starting hard deletion of all notifications in database...');
-    
+
     const result = await Notification.deleteMany({});
-    
+
     console.log(`✅ Successfully deleted ${result.deletedCount} notifications from database`);
-    
+
     processedBookingIds.clear();
     console.log('✅ Cleared processedBookingIds set');
-    
+
     return {
       deletedCount: result.deletedCount,
       message: `Successfully deleted ${result.deletedCount} notifications`

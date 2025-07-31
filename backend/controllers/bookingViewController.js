@@ -329,14 +329,14 @@ export const getTodayUserBookingStats = async (req, res) => {
   try {
     const username = req.user.username;
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    
+
     let todayParkingCount = 0;
     let todaySeatCount = 0;
 
     // Count today's parking bookings
     const parkingSlots = await ParkingSlot.find({});
     parkingSlots.forEach(slot => {
-      const todayBookings = slot.bookings.filter(booking => 
+      const todayBookings = slot.bookings.filter(booking =>
         booking.userName === username && booking.date === today
       );
       todayParkingCount += todayBookings.length;
@@ -348,7 +348,7 @@ export const getTodayUserBookingStats = async (req, res) => {
       if (userDoc.userName === username && userDoc.bookings) {
         const todayBookings = userDoc.bookings.filter(booking => {
           // Handle both Date object and string formats
-          const bookingDate = booking.date instanceof Date 
+          const bookingDate = booking.date instanceof Date
             ? booking.date.toISOString().split('T')[0]
             : booking.date.split('T')[0];
           return bookingDate === today;
@@ -375,6 +375,237 @@ export const getTodayUserBookingStats = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch today\'s booking statistics'
+    });
+  }
+};
+
+// NEW: Get today's bookings with pagination and type filtering
+export const getTodayBookingsPaginated = async (req, res) => {
+  try {
+    const username = req.user.username;
+    const { type, date, page = 1, limit = 10 } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Use provided date or default to today
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    let matchedBookings = [];
+
+    if (!type || type === 'parking') {
+      // Fetch parking bookings for the specific date
+      const parkingSlots = await ParkingSlot.find({
+        'bookings.userName': username,
+        'bookings.date': { $regex: `^${targetDate}` }
+      });
+
+      parkingSlots.forEach((slot) => {
+        slot.bookings.forEach((booking) => {
+          if (booking.userName === username && booking.date.startsWith(targetDate)) {
+            matchedBookings.push({
+              _id: booking._id || `parking_${slot._id}_${booking.date}`,
+              type: "parking",
+              date: booking.date,
+              details: booking.details || `Parking Slot ${slot.slotNumber}`,
+              floor: slot.floor || null,
+              entryTime: booking.entryTime,
+              exitTime: booking.exitTime,
+              slotNumber: slot.slotNumber,
+              location: `Floor ${slot.floor}, Slot ${slot.slotNumber}`,
+              createdAt: booking.bookedAt || booking.date
+            });
+          }
+        });
+      });
+    }
+
+    if (!type || type === 'seat') {
+      // Fetch seating bookings for the specific date
+      const seatingSlots = await SeatingSlot.find({
+        userName: username,
+        'bookings.date': {
+          $gte: new Date(targetDate),
+          $lt: new Date(new Date(targetDate).getTime() + 24 * 60 * 60 * 1000)
+        }
+      });
+
+      seatingSlots.forEach((userDoc) => {
+        if (userDoc.bookings) {
+          userDoc.bookings.forEach((booking) => {
+            const bookingDate = booking.date instanceof Date
+              ? booking.date.toISOString().split('T')[0]
+              : booking.date.split('T')[0];
+
+            if (bookingDate === targetDate) {
+              matchedBookings.push({
+                _id: booking._id || booking.bookingId || `seat_${userDoc._id}_${booking.date}`,
+                type: "seat",
+                date: bookingDate,
+                details: booking.details || `Seat ${booking.seatId || 'Unknown'}`,
+                floor: booking.floor || null,
+                entryTime: booking.entryTime,
+                exitTime: booking.exitTime,
+                seatId: booking.seatId,
+                areaId: booking.areaId,
+                location: `Floor ${booking.floor}, Area ${booking.areaId}, Seat ${booking.seatId}`,
+                createdAt: booking.bookedAt || booking.date
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Sort by creation time (most recent first) and apply pagination
+    const sortedBookings = matchedBookings
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const totalCount = sortedBookings.length;
+    const paginatedBookings = sortedBookings.slice(skip, skip + limitNum);
+
+    res.json({
+      success: true,
+      bookings: paginatedBookings,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limitNum),
+        hasNext: pageNum * limitNum < totalCount,
+        hasPrev: pageNum > 1
+      },
+      filters: {
+        type: type || 'all',
+        date: targetDate
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching today\'s bookings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch today\'s bookings'
+    });
+  }
+};
+
+// NEW: Get recent past bookings with pagination
+export const getRecentBookingsPaginated = async (req, res) => {
+  try {
+    const username = req.user.username;
+    const {
+      type,
+      beforeDate,
+      page = 1,
+      limit = 10,
+      sortOrder = 'desc'
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Use provided date or default to today
+    const cutoffDate = beforeDate || new Date().toISOString().split('T')[0];
+
+    let matchedBookings = [];
+
+    if (!type || type === 'parking') {
+      // Fetch parking bookings before the cutoff date
+      const parkingSlots = await ParkingSlot.find({
+        'bookings.userName': username,
+        'bookings.date': { $lt: cutoffDate }
+      });
+
+      parkingSlots.forEach((slot) => {
+        slot.bookings.forEach((booking) => {
+          if (booking.userName === username && booking.date < cutoffDate) {
+            matchedBookings.push({
+              _id: booking._id || `parking_${slot._id}_${booking.date}`,
+              type: "parking",
+              date: booking.date,
+              details: booking.details || `Parking Slot ${slot.slotNumber}`,
+              floor: slot.floor || null,
+              entryTime: booking.entryTime,
+              exitTime: booking.exitTime,
+              slotNumber: slot.slotNumber,
+              location: `Floor ${slot.floor}, Slot ${slot.slotNumber}`,
+              createdAt: booking.bookedAt || booking.date
+            });
+          }
+        });
+      });
+    }
+
+    if (!type || type === 'seat') {
+      // Fetch seating bookings before the cutoff date
+      const seatingSlots = await SeatingSlot.find({
+        userName: username,
+        'bookings.date': { $lt: new Date(cutoffDate) }
+      });
+
+      seatingSlots.forEach((userDoc) => {
+        if (userDoc.bookings) {
+          userDoc.bookings.forEach((booking) => {
+            const bookingDate = booking.date instanceof Date
+              ? booking.date.toISOString().split('T')[0]
+              : booking.date.split('T')[0];
+
+            if (bookingDate < cutoffDate) {
+              matchedBookings.push({
+                _id: booking._id || booking.bookingId || `seat_${userDoc._id}_${booking.date}`,
+                type: "seat",
+                date: bookingDate,
+                details: booking.details || `Seat ${booking.seatId || 'Unknown'}`,
+                floor: booking.floor || null,
+                entryTime: booking.entryTime,
+                exitTime: booking.exitTime,
+                seatId: booking.seatId,
+                areaId: booking.areaId,
+                location: `Floor ${booking.floor}, Area ${booking.areaId}, Seat ${booking.seatId}`,
+                createdAt: booking.bookedAt || booking.date
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Sort bookings
+    const sortedBookings = matchedBookings.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    const totalCount = sortedBookings.length;
+    const paginatedBookings = sortedBookings.slice(skip, skip + limitNum);
+
+    res.json({
+      success: true,
+      bookings: paginatedBookings,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limitNum),
+        hasNext: pageNum * limitNum < totalCount,
+        hasPrev: pageNum > 1
+      },
+      filters: {
+        type: type || 'all',
+        beforeDate: cutoffDate,
+        sortOrder
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching recent bookings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch recent bookings'
     });
   }
 };

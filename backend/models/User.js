@@ -6,13 +6,14 @@ const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    
+
     //Extended profile fields DM
     nickName: { type: String },
     gender: { type: String },
     country: { type: String },
     language: { type: String },
     timeZone: { type: String },
+    profilePhoto: { type: String, default: "" },
 
     teamId: { type: String, default: "" },
 

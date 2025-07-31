@@ -1,30 +1,40 @@
 import { Message, Conversation } from '../models/Message.js';
 import User from '../models/User.js';
+import { messagingConnectedUsers } from './socketController.js';
 
 // Get all conversations for the logged-in user
 export const getUserConversations = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     const conversations = await Conversation.find({
-      'participants.userId': userId
+      'participants.userId': userId,
+      'deletedBy': { $ne: userId }
     })
-    .populate('participants.userId', 'firstName lastName username profilePhoto teamId')
-    .sort({ updatedAt: -1 })
-    .limit(50);
+      .populate('participants.userId', 'firstName lastName username profilePhoto teamId')
+      .sort({ updatedAt: -1 })
+      .limit(50);
+
+    // Get REAL online status from socket connections
+    const connectedUserIds = Array.from(messagingConnectedUsers.keys());
 
     const formattedConversations = conversations.map(conv => {
       const otherParticipants = conv.participants.filter(
         p => p.userId._id.toString() !== userId
       );
-      
+
+      // Check if any other participant is actually online right now
+      const isOnline = otherParticipants.some(p =>
+        connectedUserIds.includes(p.userId._id.toString())
+      );
+
       return {
         _id: conv._id,
         conversationType: conv.conversationType,
         participants: conv.participants,
         otherParticipants,
-        displayName: conv.conversationType === 'group' 
-          ? conv.groupName 
+        displayName: conv.conversationType === 'group'
+          ? conv.groupName
           : otherParticipants.map(p => `${p.userId.firstName} ${p.userId.lastName}`).join(', '),
         displayPhoto: conv.conversationType === 'group'
           ? conv.groupPhoto
@@ -32,7 +42,7 @@ export const getUserConversations = async (req, res) => {
         lastMessage: conv.lastMessage,
         totalMessages: conv.totalMessages,
         updatedAt: conv.updatedAt,
-        isOnline: otherParticipants.some(p => p.isOnline)
+        isOnline: isOnline // Real online status from socket connections
       };
     });
 
@@ -55,7 +65,7 @@ export const getConversationMessages = async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.id;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
     // Verify user is part of the conversation
@@ -67,15 +77,21 @@ export const getConversationMessages = async (req, res) => {
       });
     }
 
+    // ✅ ADD: Get total message count for pagination info
+    const totalMessages = await Message.countDocuments({
+      conversationId,
+      isDeleted: false
+    });
+
     const messages = await Message.find({
       conversationId,
       isDeleted: false
     })
-    .populate('sender', 'firstName lastName username profilePhoto')
-    .populate('replyTo', 'content senderName createdAt')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+      .populate('sender', 'firstName lastName username profilePhoto')
+      .populate('replyTo', 'content senderName createdAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     // Mark messages as read
     await Message.updateMany(
@@ -94,13 +110,19 @@ export const getConversationMessages = async (req, res) => {
       }
     );
 
+    // ✅ ADD: Enhanced pagination info
+    const hasMore = skip + messages.length < totalMessages;
+
     res.json({
       success: true,
-      messages: messages.reverse(),
+      messages: messages.reverse(), // Reverse to show oldest first in the response
       pagination: {
         page,
         limit,
-        hasMore: messages.length === limit
+        total: totalMessages,
+        hasMore,
+        totalPages: Math.ceil(totalMessages / limit),
+        currentCount: messages.length
       }
     });
   } catch (error) {
@@ -115,26 +137,20 @@ export const getConversationMessages = async (req, res) => {
 // Send a new message
 export const sendMessage = async (req, res) => {
   try {
-    console.log('=== DEBUG SEND MESSAGE ===');
-    console.log('req.user:', req.user);
-    console.log('req.user.id:', req.user._id); // Change to _id
-    console.log('conversationId from params:', req.params.conversationId); // From URL
-    
-    const conversationId = req.params.conversationId; // Get from URL params
+    const conversationId = req.params.conversationId;
     const { content, messageType = 'text', bookingContext, replyTo } = req.body;
-    const userId = req.user._id.toString(); // Use _id instead of id
+    const userId = req.user._id.toString();
     const user = req.user;
 
     // Verify conversation access
     const conversation = await Conversation.findById(conversationId);
-    console.log('Found conversation:', conversation ? 'YES' : 'NO');
     if (!conversation) {
       return res.status(404).json({
         success: false,
         error: 'Conversation not found'
       });
     }
-    
+
     if (!conversation.participants.some(p => p.userId.toString() === userId)) {
       return res.status(403).json({
         success: false,
@@ -144,7 +160,7 @@ export const sendMessage = async (req, res) => {
 
     // Create new message
     const newMessage = new Message({
-      conversationId, // This should now be defined
+      conversationId,
       sender: userId,
       senderUsername: user.username,
       senderName: `${user.firstName} ${user.lastName}`,
@@ -198,8 +214,8 @@ export const searchUsers = async (req, res) => {
         { email: { $regex: query, $options: 'i' } }
       ]
     })
-    .select('firstName lastName username email profilePhoto teamId')
-    .limit(10);
+      .select('firstName lastName username email profilePhoto teamId')
+      .limit(10);
 
     const formattedUsers = users.map(user => ({
       _id: user._id,
@@ -229,12 +245,12 @@ export const searchUsers = async (req, res) => {
 export const createOrGetConversation = async (req, res) => {
   try {
     const { participantIds, conversationType = 'direct', groupName } = req.body;
-    const currentUserId = req.user.id;  // ← Make sure this is getting the user ID
+    const currentUserId = req.user.id;
     const currentUser = req.user;
 
-    // IMPORTANT: Add current user to participants
+    // Add current user to participants
     const allParticipantIds = [currentUserId, ...participantIds];
-    
+
     // For direct conversations, check if conversation already exists
     if (conversationType === 'direct' && allParticipantIds.length === 2) {
       const existingConversation = await Conversation.findOne({
@@ -244,18 +260,48 @@ export const createOrGetConversation = async (req, res) => {
       });
 
       if (existingConversation) {
+        // If current user had deleted this conversation, restore it
+        if (existingConversation.deletedBy.includes(currentUserId)) {
+          existingConversation.deletedBy = existingConversation.deletedBy.filter(
+            id => id.toString() !== currentUserId
+          );
+          await existingConversation.save();
+        }
+
+        // Format existing conversation for response with correct displayName
+        const formattedExistingConversation = {
+          _id: existingConversation._id,
+          conversationType: existingConversation.conversationType,
+          participants: existingConversation.participants,
+          displayName: existingConversation.conversationType === 'group'
+            ? existingConversation.groupName
+            : existingConversation.participants
+              .filter(p => p.userId.toString() !== currentUserId)
+              .map(p => `${p.firstName} ${p.lastName}`)
+              .join(', '),
+          lastMessage: existingConversation.lastMessage,
+          totalMessages: existingConversation.totalMessages || 0,
+          updatedAt: existingConversation.updatedAt || new Date(),
+          isOnline: existingConversation.participants.some(p =>
+            p.userId.toString() !== currentUserId && p.isOnline
+          )
+        };
+
         return res.json({
           success: true,
-          conversation: existingConversation,
+          conversation: formattedExistingConversation,
           isNew: false
         });
       }
     }
 
-    // Get participant details - INCLUDE CURRENT USER
+    // Get participant details
     const participants = await User.find({
-      _id: { $in: allParticipantIds }  // ← This should include current user
+      _id: { $in: allParticipantIds }
     }).select('firstName lastName username profilePhoto');
+
+    // Get real online status for participants
+    const connectedUserIds = Array.from(messagingConnectedUsers.keys());
 
     const participantData = participants.map(user => ({
       userId: user._id,
@@ -263,12 +309,12 @@ export const createOrGetConversation = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       profilePhoto: user.profilePhoto,
-      isOnline: false
+      isOnline: connectedUserIds.includes(user._id.toString()) // Real online status
     }));
 
     // Create new conversation
     const newConversation = new Conversation({
-      participants: participantData,  // ← Current user should be in here
+      participants: participantData,
       conversationType,
       groupName: conversationType === 'group' ? groupName : undefined,
       groupAdmin: conversationType === 'group' ? currentUserId : undefined
@@ -276,11 +322,32 @@ export const createOrGetConversation = async (req, res) => {
 
     await newConversation.save();
 
+    // Format new conversation for response with correct displayName
+    const formattedNewConversation = {
+      _id: newConversation._id,
+      conversationType: newConversation.conversationType,
+      participants: newConversation.participants,
+      displayName: newConversation.conversationType === 'group'
+        ? newConversation.groupName
+        : newConversation.participants
+          .filter(p => p.userId.toString() !== currentUserId)
+          .map(p => `${p.firstName} ${p.lastName}`)
+          .join(', '),
+      lastMessage: newConversation.lastMessage,
+      totalMessages: newConversation.totalMessages || 0,
+      updatedAt: newConversation.updatedAt || new Date(),
+      isOnline: newConversation.participants.some(p =>
+        p.userId.toString() !== currentUserId && p.isOnline
+      )
+    };
+
     res.status(201).json({
       success: true,
-      conversation: newConversation,
+      conversation: formattedNewConversation,
       isNew: true
     });
+
+
   } catch (error) {
     console.error('Error creating conversation:', error);
     res.status(500).json({
@@ -370,12 +437,29 @@ export const deleteMessage = async (req, res) => {
 // Get unread message count
 export const getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id || req.user.id;
+
+    // Step 1: Find conversations where this user is a participant
+    const userConversations = await Conversation.find({
+      'participants.userId': userId
+    }).select('_id');
+
+    // Step 2: If user has no conversations, they have no unread messages
+    if (userConversations.length === 0) {
+      return res.json({
+        success: true,
+        unreadCount: 0
+      });
+    }
+
+    // Step 3: Count unread messages only from user's conversations
+    const conversationIds = userConversations.map(conv => conv._id);
 
     const unreadCount = await Message.countDocuments({
-      sender: { $ne: userId },
-      'readBy.userId': { $ne: userId },
-      isDeleted: false
+      conversationId: { $in: conversationIds },    // Only from user's conversations
+      sender: { $ne: userId },                     // Not sent by current user
+      'readBy.userId': { $ne: userId },            // Not read by current user
+      isDeleted: false                             // Not deleted messages
     });
 
     res.json({
@@ -388,5 +472,41 @@ export const getUnreadCount = async (req, res) => {
       success: false,
       error: 'Failed to get unread count'
     });
+  }
+};
+
+// Delete conversation for current user
+export const deleteConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: 'Conversation not found' });
+    }
+
+    // Check if user is participant
+    if (!conversation.participants.some(p => p.userId.toString() === userId)) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Add user to deletedBy array if not already there
+    if (!conversation.deletedBy.includes(userId)) {
+      conversation.deletedBy.push(userId);
+    }
+
+    // If all participants have deleted, permanently delete conversation and messages
+    if (conversation.deletedBy.length === conversation.participants.length) {
+      await Message.deleteMany({ conversationId });
+      await Conversation.findByIdAndDelete(conversationId);
+    } else {
+      await conversation.save();
+    }
+
+    res.json({ success: true, message: 'Conversation deleted' });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete conversation' });
   }
 };
