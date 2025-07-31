@@ -31,7 +31,7 @@ router.post("/available-slots", verifyToken, async (req, res) => {
 router.post("/book-slot", verifyToken, async (req, res) => {
     // Get username from the token (middleware adds the user info to req.user)
     const username = req.user.username;
-    
+        
     const { slotNumber, date, entryTime, exitTime } = req.body;
 
     // Find the slot by slotNumber only, without requiring floor
@@ -39,7 +39,7 @@ router.post("/book-slot", verifyToken, async (req, res) => {
 
     if (!slot) return res.status(404).json({ message: "Slot not found" });
 
-    // Check for overlapping bookings
+    // EXISTING LOGIC: Check for overlapping bookings by other users
     const overlapping = slot.bookings.some(booking =>
         booking.date === date &&
         !(exitTime <= booking.entryTime || entryTime >= booking.exitTime)
@@ -47,23 +47,49 @@ router.post("/book-slot", verifyToken, async (req, res) => {
 
     if (overlapping) return res.status(400).json({ message: "Slot already booked for this time" });
 
-    // Save booking with username instead of userId
-    slot.bookings.push({ userName: username, date, entryTime, exitTime });
-    await slot.save();
-
-    // Emit real-time update
-    io.emit("updateParkingSlots", { message: "Slot booked", slot });
-
-    // Send booking notifications Sjay
+    // NEW LOGIC: Check if the SAME USER already has an overlapping booking on the same date
     try {
-        const latestBooking = slot.bookings[slot.bookings.length - 1];
-        createBookingNotifications('parking', slot, latestBooking);
-        console.log(`📍 Booking notification sent for user ${username}, slot ${slotNumber}, date ${date}`);
-    } catch (error) {
-        console.error('❌ Error sending booking notification:', error.message, error.stack);
-    }
+        // Get all slots to check user's existing bookings for this date
+        const allSlots = await ParkingSlot.find({});
+        
+        // Check if user already has a booking that overlaps with the requested time
+        const userHasOverlappingBooking = allSlots.some(existingSlot =>
+            existingSlot.bookings.some(existingBooking =>
+                existingBooking.userName === username &&
+                existingBooking.date === date &&
+                !(exitTime <= existingBooking.entryTime || entryTime >= existingBooking.exitTime)
+            )
+        );
 
-    res.json({ message: "Booking successful", slot });
+        if (userHasOverlappingBooking) {
+            return res.status(400).json({ 
+                message: "You already have a booking that overlaps with this time period on the same date. You cannot book multiple overlapping slots." 
+            });
+        }
+
+        // If no overlapping booking found, proceed with the original booking logic
+        // Save booking with username instead of userId
+        slot.bookings.push({ userName: username, date, entryTime, exitTime });
+        await slot.save();
+
+        // Emit real-time update
+        io.emit("updateParkingSlots", { message: "Slot booked", slot });
+
+        // Send booking notifications Sjay
+        try {
+            const latestBooking = slot.bookings[slot.bookings.length - 1];
+            createBookingNotifications('parking', slot, latestBooking);
+            console.log(`📍 Booking notification sent for user ${username}, slot ${slotNumber}, date ${date}`);
+        } catch (error) {
+            console.error('❌ Error sending booking notification:', error.message, error.stack);
+        }
+
+        res.json({ message: "Booking successful", slot });
+
+    } catch (error) {
+        console.error('❌ Error checking user overlapping bookings:', error);
+        return res.status(500).json({ message: "Error processing booking request" });
+    }
 });
 
 export default router;

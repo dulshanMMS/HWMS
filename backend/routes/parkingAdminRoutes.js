@@ -3,8 +3,32 @@ import express from "express";
 import ParkingSlot from "../models/ParkingSlots.js";
 import User from '../models/User.js';
 
-
 const router = express.Router();
+
+// NEW: Get all usernames with first names for admin reference
+router.get("/get-usernames", async (req, res) => {
+  try {
+    // Fetch all users with only firstName and username fields
+    const users = await User.find(
+      { role: "user" }, // Only get regular users, not admins
+      { firstName: 1, username: 1, _id: 0 } // Only return firstName and username
+    ).sort({ firstName: 1 }); // Sort by firstName alphabetically
+
+    const userList = users.map(user => ({
+      displayName: `${user.firstName} - ${user.username}`,
+      firstName: user.firstName,
+      username: user.username
+    }));
+
+    res.json({
+      totalUsers: userList.length,
+      users: userList
+    });
+  } catch (err) {
+    console.error("Error fetching usernames:", err);
+    res.status(500).json({ error: "Error fetching usernames" });
+  }
+});
 
 // 1. Filter by Date
 router.post("/filter-by-date", async (req, res) => {
@@ -39,9 +63,9 @@ router.post("/filter-by-date", async (req, res) => {
   }
 });
 
-// 2. Filter by Username
+// 2. Filter by Username - UPDATED with pagination support and keeping duplicate dates
 router.post("/filter-by-username", async (req, res) => {
-  const { username } = req.body;
+  const { username, page = 1, limit = 50 } = req.body; // Added pagination parameters
 
   if (!username) return res.status(400).json({ message: "Username is required" });
 
@@ -60,9 +84,29 @@ router.post("/filter-by-username", async (req, res) => {
       });
     });
 
+    // UPDATED: Keep duplicates but sort by date (newest first)
+    // Do NOT remove duplicates - each duplicate represents a separate booking
+    const sortedDates = bookingDates.sort((a, b) => new Date(b) - new Date(a));
+
+    // Apply pagination to the full list (including duplicates)
+    const totalDates = sortedDates.length;
+    const totalPages = Math.ceil(totalDates / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedDates = sortedDates.slice(startIndex, endIndex);
+
     res.json({
-      totalBookings: bookingDates.length,
-      bookingDates
+      totalBookings: totalDates, // Now represents total bookings (including multiple per day)
+      bookingDates: paginatedDates,
+      // NEW: Pagination metadata
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalItems: totalDates,
+        itemsPerPage: parseInt(limit),
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
     });
   } catch (err) {
     res.status(500).json({ error: "Error fetching data" });
@@ -103,7 +147,6 @@ router.post("/filter-by-user-and-date", async (req, res) => {
   }
 });
 
-
 // Admin: Add a new slot to a floor
 router.post("/add-slot", async (req, res) => {
     const { slotNumber, floor } = req.body;
@@ -125,8 +168,6 @@ router.post("/add-slot", async (req, res) => {
       });
   
       await newSlot.save();
-
-     
 
       res.status(201).json({ message: "Slot added successfully", slot: newSlot });
     } catch (error) {
