@@ -1,6 +1,8 @@
 import express from "express";
 import User from "../models/User.js";
 import verifyToken, { isAdmin } from "../middleware/authMiddleware.js";
+import { getAllUsers, updateUserRole } from "../controllers/userController.js";
+import { authenticateUser, verifyAdmin } from "../middleware/authMiddleware.js";
 
 //import profile controller functions DM
 import {
@@ -47,10 +49,12 @@ router.get("/lookup", verifyToken, isAdmin, async (req, res) => {
 router.get("/profile", verifyToken, getUserProfile);
 router.put("/profile", verifyToken, updateUserProfile);
 
+router.get("/users", authenticateUser, verifyAdmin, getAllUsers);
+router.patch("/users/:id/role", authenticateUser, verifyAdmin, updateUserRole);
 
 //Maleesha
 // GET /api/user?teamId=T001 - Fetch users by teamId
-router.get("/", async (req, res) => {
+router.get("/by-team", async (req, res) => {
   try {
     const { teamId } = req.query;
     if (!teamId) return res.status(400).json({ error: "teamId is required" });

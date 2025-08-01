@@ -6,13 +6,17 @@ import {
   getUsers,
 } from "../controllers/userController.js";
 import verifyToken from "../middleware/authMiddleware.js"; // Auth middleware to verify JWT
+import { getAllUsers, updateUserRole } from "../controllers/userController.js";
+import { authenticateUser, verifyAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Route to get the profile info of the logged-in user
 // Protected route: requires valid JWT token
 router.get("/profile", verifyToken, getUserProfile);
-router.get("/", getUsers); // for teamId-based query in AdminTeamManagement ------------- Maleeha
+router.get("/", getUsers); // for teamId-based query in AdminTeamManagement ------------- Maleeha         
+router.get("/users", authenticateUser, verifyAdmin, getAllUsers);  //to switch a user into an admin ------Maleesha
+router.patch("/users/:id/role", authenticateUser, verifyAdmin, updateUserRole);
 
 // Route to update the logged-in user's profile info
 // Protected route with input validation on specific fields

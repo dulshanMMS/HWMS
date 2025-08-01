@@ -2,6 +2,7 @@ import express from "express";
 import SeatingSlots from "../models/SeatingSlots.js";
 import User from "../models/User.js";
 import verifyToken from "../middleware/authMiddleware.js";
+import { createCancellationNotifications } from "../services/notificationService.js";
 
 const router = express.Router();
 
@@ -139,7 +140,7 @@ router.delete("/user/delete", verifyToken, async (req, res) => {
 
     try {
         const userName = await getUserName(req.user);
-        console.log('🗑️ DELETE /user/delete - userName:', userName);
+        console.log('🗑️ DELETE /user/delete - userName:', userName, 'bookingId:', bookingId, 'seatId:', seatId, 'date:', date);
         
         if (!userName) {
             return res.status(400).json({ message: "Could not determine user identity" });
@@ -152,15 +153,31 @@ router.delete("/user/delete", verifyToken, async (req, res) => {
             return res.status(404).json({ message: "No booking records found for user." });
         }
 
-        // Find and remove the specific booking
+        // Find the booking to be removed to capture its details
+        const bookingToRemove = userBookings.bookings.find(booking => {
+            if (bookingId) {
+                return booking.bookingId === bookingId;
+            } else {
+                const bookingDate = booking.date.toISOString().split('T')[0];
+                return (
+                    booking.seatId === seatId &&
+                    bookingDate === date &&
+                    booking.entryTime === entryTime &&
+                    booking.exitTime === exitTime
+                );
+            }
+        });
+
+        if (!bookingToRemove) {
+            return res.status(404).json({ message: "Seat booking not found for deletion." });
+        }
+
+        // Remove the specific booking
         const initialLength = userBookings.bookings.length;
-        
         userBookings.bookings = userBookings.bookings.filter(booking => {
-            // Match by bookingId (primary identifier) or by combination of other fields
             if (bookingId) {
                 return booking.bookingId !== bookingId;
             } else {
-                // Fallback to matching by multiple fields if bookingId not provided
                 const bookingDate = booking.date.toISOString().split('T')[0];
                 return !(
                     booking.seatId === seatId &&
@@ -181,6 +198,28 @@ router.delete("/user/delete", verifyToken, async (req, res) => {
 
         // Save the updated document
         await userBookings.save();
+
+        // Create cancellation notification Sjay
+        try {
+            const user = await User.findOne({ username: userName }).select('_id');
+            if (!user) {
+                console.error(`❌ User not found for username: ${userName}`);
+            } else {
+                const targetDate = bookingToRemove.date.toISOString().split('T')[0];
+                 createCancellationNotifications({
+                    userId: user._id.toString(),
+                    slotNumber: bookingToRemove.seatId,
+                    floor: bookingToRemove.floor,
+                    type: 'seat',
+                    date: targetDate,
+                    bookingId: bookingToRemove.bookingId
+                });
+                console.log(`✅ Cancellation notification created for booking: ${bookingToRemove.bookingId}`);
+            }
+        } catch (notificationError) {
+            console.error(`❌ Failed to create cancellation notification:`, notificationError);
+            // Don't throw error to avoid disrupting booking deletion
+        }
 
         console.log("✅ Booking deleted successfully for user:", userName);
         return res.json({ message: "Seat booking deleted successfully." });

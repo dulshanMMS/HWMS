@@ -349,81 +349,7 @@ export const userBookings = async (req, res) => {
   }
 };
 
-// export const recentBookings = async (req, res) => {
-//   try {
-//     const seatingMembers = await SeatingSlot.find();
-//     const parkingSlots = await ParkingSlot.find();
 
-//     const users = await User.find().select('username teamId firstName lastName');
-//     const teams = await Team.find().select('teamId teamName color');
-    
-//     const teamMap = {};
-//     teams.forEach(team => {
-//       teamMap[team.teamId] = {
-//         teamName: team.teamName,
-//         color: team.color
-//       };
-//     });
-
-//     const userTeamMap = {};
-//     users.forEach(user => {
-//       const teamInfo = teamMap[user.teamId];
-//       userTeamMap[user.username] = {
-//         teamName: teamInfo?.teamName || 'No Team',
-//         teamColor: teamInfo?.color || '#6B7280',
-//         fullName: `${user.firstName} ${user.lastName}`,
-//         teamId: user.teamId || null
-//       };
-//     });
-
-//     const seatingData = seatingMembers.flatMap(member =>
-//       member.bookings.map(booking => ({
-//         slotType: 'seating',
-//         slotNumber: booking.seatId,
-//         floor: booking.floor,
-//         booking: {
-//           ...booking.toObject(),
-//           userName: member.userName,
-//           team: member.teamName || 'No Team',
-//           teamColor: member.teamColor || '#6B7280',
-//           teamId: member.teamId || null
-//         }
-//       }))
-//     );
-
-//     const parkingData = parkingSlots.flatMap(slot =>
-//       slot.bookings.map(booking => {
-//         const userInfo = userTeamMap[booking.userName] || {
-//           teamName: 'No Team',
-//           teamColor: '#6B7280',
-//           fullName: booking.userName,
-//           teamId: null
-//         };
-
-//         return {
-//           slotType: 'parking',
-//           slotNumber: slot.slotNumber,
-//           floor: slot.floor,
-//           booking: {
-//             ...booking.toObject(),
-//             team: userInfo.teamName,
-//             teamColor: userInfo.teamColor,
-//             teamId: userInfo.teamId
-//           }
-//         };
-//       })
-//     );
-
-//     const allBookings = [...seatingData, ...parkingData]
-//       .sort((a, b) => new Date(b.booking.date) - new Date(a.booking.date))
-//       .slice(0, 10);
-
-//     res.json(allBookings);
-//   } catch (error) {
-//     console.error('Error fetching recent bookings:', error);
-//     res.status(500).json({ error: 'Failed to fetch recent bookings' });
-//   }
-// };
 export const recentBookings = async (req, res) => {
   try {
     const seatingMembers = await SeatingSlot.find();
@@ -511,105 +437,122 @@ export const recentBookings = async (req, res) => {
   }
 };
 
+
+
 export const allBookings = async (req, res) => {
-  try {
-    const seatingMembers = await SeatingSlot.find();
-    const parkingSlots = await ParkingSlot.find();
-    const users = await User.find().select('username teamId firstName lastName');
-    const teams = await Team.find().select('teamId teamName color');
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate) : new Date('2000-01-01');
+      const end = endDate ? new Date(endDate) : new Date('2100-01-01');
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
 
-    const teamMap = {};
-    teams.forEach(team => {
-      teamMap[team.teamId] = {
-        teamName: team.teamName,
-        color: team.color
+      const dateInRange = (date) => {
+        const d = new Date(date);
+        return d >= start && d <= end;
       };
-    });
 
-    const userTeamMap = {};
-    users.forEach(user => {
-      const teamInfo = teamMap[user.teamId] || { teamName: 'No Team', color: '#6B7280' };
-      userTeamMap[user.username] = {
-        teamName: teamInfo.teamName,
-        teamColor: teamInfo.color,
-        fullName: `${user.firstName} ${user.lastName}`,
-        teamId: user.teamId || null
-      };
-    });
+      const seatingMembers = await SeatingSlot.find();
+      const parkingSlots = await ParkingSlot.find();
+      const users = await User.find().select('username teamId firstName lastName');
+      const teams = await Team.find().select('teamId teamName color');
 
-    const formattedSeatBookings = seatingMembers.flatMap(member => 
-      member.bookings.map(booking => {
-        const userInfo = userTeamMap[member.userName] || {
-          teamName: member.teamName || 'No Team',
-          teamColor: member.teamColor || '#6B7280',
-          fullName: member.userName,
-          teamId: member.teamId || null
+      const teamMap = {};
+      teams.forEach(team => {
+        teamMap[team.teamId] = {
+          teamName: team.teamName,
+          color: team.color
         };
-        return {
-          id: `seat-${member._id}-${booking.date}-${booking.entryTime}`,
-          _id: `seat-${member._id}-${booking.bookingId}`,
-          user: { 
-            name: member.userName,
-            username: member.userName,
-            fullName: userInfo.fullName
-          },
-          slot: { 
-            slotNumber: booking.seatId, 
-            floor: booking.floor 
-          },
-          type: "seat",
-          date: booking.date,
-          entryTime: booking.entryTime,
-          exitTime: booking.exitTime,
-          createdAt: new Date(booking.date),
-          team: userInfo.teamName,
-          teamId: userInfo.teamId,
-          teamColor: userInfo.teamColor
-        };
-      })
-    );
+      });
 
-    const formattedParkingBookings = parkingSlots.flatMap(slot =>
-      slot.bookings.map(booking => {
-        const userInfo = userTeamMap[booking.userName] || {
-          teamName: 'No Team',
-          teamColor: '#6B7280',
-          fullName: booking.userName,
-          teamId: null
+      const userTeamMap = {};
+      users.forEach(user => {
+        const teamInfo = teamMap[user.teamId] || { teamName: 'No Team', color: '#6B7280' };
+        userTeamMap[user.username] = {
+          teamName: teamInfo.teamName,
+          teamColor: teamInfo.color,
+          fullName: `${user.firstName} ${user.lastName}`,
+          teamId: user.teamId || null
         };
-        return {
-          id: `parking-${slot._id}-${booking.date}-${booking.entryTime}`,
-          _id: `parking-${slot._id}-${booking.date}-${booking.entryTime}`,
-          user: { 
-            name: booking.userName,
-            username: booking.userName,
-            fullName: userInfo.fullName
-          },
-          slot: { 
-            slotNumber: slot.slotNumber, 
-            floor: slot.floor 
-          },
-          type: "parking",
-          date: booking.date,
-          entryTime: booking.entryTime,
-          exitTime: booking.exitTime,
-          createdAt: new Date(booking.date),
-          team: userInfo.teamName,
-          teamId: userInfo.teamId,
-          teamColor: userInfo.teamColor
-        };
-      })
-    );
+      });
 
-    const allBookings = [...formattedSeatBookings, ...formattedParkingBookings]
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+      const formattedSeatBookings = seatingMembers.flatMap(member => 
+        member.bookings
+          .filter(booking => dateInRange(booking.date))
+          .map(booking => {
+            const userInfo = userTeamMap[member.userName] || {
+              teamName: member.teamName || 'No Team',
+              teamColor: member.teamColor || '#6B7280',
+              fullName: member.userName,
+              teamId: member.teamId || null
+            };
+            return {
+              id: `seat-${member._id}-${booking.date}-${booking.entryTime}`,
+              _id: `seat-${member._id}-${booking.bookingId}`,
+              user: { 
+                name: member.userName,
+                username: member.userName,
+                fullName: userInfo.fullName
+              },
+              slot: { 
+                slotNumber: booking.seatId, 
+                floor: booking.floor 
+              },
+              type: "seat",
+              date: booking.date,
+              entryTime: booking.entryTime,
+              exitTime: booking.exitTime,
+              createdAt: new Date(booking.date),
+              team: userInfo.teamName,
+              teamId: userInfo.teamId,
+              teamColor: userInfo.teamColor
+            };
+          })
+      );
 
-    res.json(allBookings);
-  } catch (error) {
-    console.error('Detailed error in all-bookings endpoint:', error);
-    res.status(500).json({ error: 'Failed to fetch bookings' });
-  }
-};
+      const formattedParkingBookings = parkingSlots.flatMap(slot =>
+        slot.bookings
+          .filter(booking => dateInRange(booking.date))
+          .map(booking => {
+            const userInfo = userTeamMap[booking.userName] || {
+              teamName: 'No Team',
+              teamColor: '#6B7280',
+              fullName: booking.userName,
+              teamId: null
+            };
+            return {
+              id: `parking-${slot._id}-${booking.date}-${booking.entryTime}`,
+              _id: `parking-${slot._id}-${booking.date}-${booking.entryTime}`,
+              user: { 
+                name: booking.userName,
+                username: booking.userName,
+                fullName: userInfo.fullName
+              },
+              slot: { 
+                slotNumber: slot.slotNumber, 
+                floor: slot.floor 
+              },
+              type: "parking",
+              date: booking.date,
+              entryTime: booking.entryTime,
+              exitTime: booking.exitTime,
+              createdAt: new Date(booking.date),
+              team: userInfo.teamName,
+              teamId: userInfo.teamId,
+              teamColor: userInfo.teamColor
+            };
+          })
+      );
+
+      const allBookings = [...formattedSeatBookings, ...formattedParkingBookings]
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      res.json(allBookings);
+    } catch (error) {
+      console.error('Detailed error in all-bookings endpoint:', error);
+      res.status(500).json({ error: 'Failed to fetch bookings' });
+    }
+  };// All bookings can get for date range
 
 export const getTeamStats = async (req, res) => {
   try {

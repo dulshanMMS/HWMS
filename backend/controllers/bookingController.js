@@ -158,29 +158,54 @@ export const getTeamBookingsToday = async (req, res) => {
 
 // 4. FLOOR-WISE BOOKING COUNTS....
 export const getFloorBookingCount = async (req, res) => {
-  const { type = "parking", range = "today" } = req.query;
+  const { type = "parking", range = "today", date } = req.query;
 
-  const now = new Date();
+let rangeStart, rangeEnd;
 
-  let rangeStart, rangeEnd;
+if (date) {
+  const base = new Date(date + "T00:00:00");
 
   switch (range) {
     case "week":
-      rangeStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-      rangeEnd = endOfWeek(now, { weekStartsOn: 1 });     // Sunday
+      rangeStart = startOfWeek(base, { weekStartsOn: 1 });
+      rangeEnd = endOfWeek(base, { weekStartsOn: 1 });
       break;
     case "month":
-      rangeStart = subDays(startOfDay(now), 29); // Last 30 days
+      rangeStart = subDays(startOfDay(base), 29);
+      rangeEnd = endOfDay(base);
+      break;
+    case "3months":
+      rangeStart = subDays(startOfDay(base), 89);
+      rangeEnd = endOfDay(base);
+      break;
+    case "custom":
+      rangeStart = startOfDay(base);
+      rangeEnd = endOfDay(base);
+      break;
+    default:
+      rangeStart = startOfDay(base);
+      rangeEnd = endOfDay(base);
+  }
+} else {
+  const now = new Date();
+  switch (range) {
+    case "week":
+      rangeStart = startOfWeek(now, { weekStartsOn: 1 });
+      rangeEnd = endOfWeek(now, { weekStartsOn: 1 });
+      break;
+    case "month":
+      rangeStart = subDays(startOfDay(now), 29);
       rangeEnd = endOfDay(now);
       break;
     case "3months":
-      rangeStart = subDays(startOfDay(now), 89); // Last 90 days
+      rangeStart = subDays(startOfDay(now), 89);
       rangeEnd = endOfDay(now);
       break;
     default:
       rangeStart = startOfDay(now);
       rangeEnd = endOfDay(now);
   }
+}
 
   try {
     const floorMap = {};

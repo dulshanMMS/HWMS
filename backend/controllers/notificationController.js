@@ -1,5 +1,3 @@
-
-
 import * as NotificationService from '../services/notificationService.js';
 import {
   getNotificationPreferences as getPreferencesService,
@@ -138,6 +136,8 @@ export const deleteAllNotifications = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+
 
 export const sendBulkNotification = async (req, res) => {
   try {

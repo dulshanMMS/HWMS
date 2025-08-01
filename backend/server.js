@@ -15,6 +15,9 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import ratingRoutes from "./routes/ratingRoutes.js"; // New rating routes
 import { initializeNotificationSystem } from './services/notificationService.js';
 
+// import { deleteAllNotificationsInDatabase } from './services/NotificationService.js';
+
+
 import ParkingSlot from './models/ParkingSlots.js';
 import SeatingSlot from './models/SeatingSlots.js';
 import Notification from "./models/Notification.js";
@@ -27,9 +30,12 @@ import userRoutes from "./routes/user.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import bookingViewRoutes from './routes/bookingViewRoutes.js';
 import announcementRoutes from "./routes/announcementRoutes.js";
+import emailRoutes from './routes/emailRoutes.js';
 
+import supportRoutes from './routes/supportRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import { socketController } from './controllers/socketController.js';
+
 
 dotenv.config();
 
@@ -66,11 +72,13 @@ app.use("/api/user", userRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use('/api/calendar', bookingViewRoutes);
 app.use('/api', teamRoutes);
+app.use('/api/email', emailRoutes);
 
 app.use("/api/ratings", ratingRoutes); // New rating routes
 
 app.use("/api/announcements", announcementRoutes);
 app.use('/api/messages', messageRoutes);
+app.use("/api/support", supportRoutes);
 
 
 // Test Routes
@@ -104,7 +112,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
     const notificationCount = await Notification.countDocuments();
 
     console.log(`Bookings: ${totalSeatBookings + totalParkingBookings}, Notifications: ${notificationCount}`);
-    //await generateNotificationsForPastBookings();
+    // await deleteAllNotificationsInDatabase(); // Only for testing Sjay
     // initializeNotificationSystem();
   })
   .catch(err => console.error('MongoDB connection error:', err));
@@ -112,6 +120,9 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 // WebSocket Setup
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+
+  // Handle messaging events FIRST (before other socket events)
+  socketController.handleMessagingEvents(socket, io);
 
   socket.on("newNotification", async (notification) => {
     try {
@@ -126,7 +137,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
-  socketController.handleMessagingEvents(socket, io);
+
 });
 
 // Start Server
