@@ -23,7 +23,7 @@ export const signup = async (req, res) => {
   }
 
   if (!validateEmail(email)) {
-    return res.status(400).json({ error: "Invalid email format. Must include '@' and end with '.com'." });
+    return res.status(400).json({ error: "Invalid email format. Must end with '@wiley.com'." });
   }
 
   if (!validatePassword(password)) {

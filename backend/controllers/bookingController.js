@@ -24,7 +24,6 @@ export const getTodayBookingCount = async (req, res) => {
     // --- SEATING BOOKINGS ---
     const seatingSlots = await SeatingSlot.find({});
     let seatingCount = 0;
-
     for (const user of seatingSlots) {
       const bookings = user.bookings || [];
       for (const booking of bookings) {
@@ -37,7 +36,7 @@ export const getTodayBookingCount = async (req, res) => {
     }
 
     const total = parkingCount + seatingCount;
-    res.json({ success: true, count: total });
+    res.json({ success: true, total, parkingCount, seatingCount });
   } catch (err) {
     console.error("❌ Error in getTodayBookingCount:", err);
     res.status(500).json({ success: false, error: err.message });
@@ -83,18 +82,10 @@ export const getTeamBookingsToday = async (req, res) => {
     now.setHours(0, 0, 0, 0);
     const teamBookingMap = {};
 
-    const [parkingSlots, seatingSlots, users, teams] = await Promise.all([
-      ParkingSlot.find({}),
+    const [seatingSlots, teams] = await Promise.all([
       SeatingSlot.find({}),
-      User.find({}),
       Team.find({})
     ]);
-
-    // Build user → teamId map
-    const userMap = {};
-    users.forEach(user => {
-      userMap[user.username] = user.teamId;
-    });
 
     // Build teamId → name/color map
     const teamMap = {};
@@ -104,25 +95,6 @@ export const getTeamBookingsToday = async (req, res) => {
         color: team.color || '#ccc'
       };
     });
-
-    // Count PARKING bookings per team
-    for (const slot of parkingSlots) {
-      for (const booking of slot.bookings || []) {
-        const bookingDate = new Date(booking.date);
-        bookingDate.setHours(0, 0, 0, 0);
-        if (bookingDate.getTime() !== now.getTime()) continue;
-
-        const teamId = userMap[booking.userName];
-        if (!teamId) continue;
-
-        if (!teamBookingMap[teamId]) {
-          const team = teamMap[teamId] || { name: "Unknown", color: "#ccc" };
-          teamBookingMap[teamId] = { count: 0, name: team.name, color: team.color };
-        }
-
-        teamBookingMap[teamId].count += 1;
-      }
-    }
 
     // Count SEATING bookings per team
     for (const member of seatingSlots) {
@@ -160,52 +132,52 @@ export const getTeamBookingsToday = async (req, res) => {
 export const getFloorBookingCount = async (req, res) => {
   const { type = "parking", range = "today", date } = req.query;
 
-let rangeStart, rangeEnd;
+  let rangeStart, rangeEnd;
 
-if (date) {
-  const base = new Date(date + "T00:00:00");
+  if (date) {
+    const base = new Date(date + "T00:00:00");
 
-  switch (range) {
-    case "week":
-      rangeStart = startOfWeek(base, { weekStartsOn: 1 });
-      rangeEnd = endOfWeek(base, { weekStartsOn: 1 });
-      break;
-    case "month":
-      rangeStart = subDays(startOfDay(base), 29);
-      rangeEnd = endOfDay(base);
-      break;
-    case "3months":
-      rangeStart = subDays(startOfDay(base), 89);
-      rangeEnd = endOfDay(base);
-      break;
-    case "custom":
-      rangeStart = startOfDay(base);
-      rangeEnd = endOfDay(base);
-      break;
-    default:
-      rangeStart = startOfDay(base);
-      rangeEnd = endOfDay(base);
+    switch (range) {
+      case "week":
+        rangeStart = startOfWeek(base, { weekStartsOn: 1 });
+        rangeEnd = endOfWeek(base, { weekStartsOn: 1 });
+        break;
+      case "month":
+        rangeStart = subDays(startOfDay(base), 29);
+        rangeEnd = endOfDay(base);
+        break;
+      case "3months":
+        rangeStart = subDays(startOfDay(base), 89);
+        rangeEnd = endOfDay(base);
+        break;
+      case "custom":
+        rangeStart = startOfDay(base);
+        rangeEnd = endOfDay(base);
+        break;
+      default:
+        rangeStart = startOfDay(base);
+        rangeEnd = endOfDay(base);
+    }
+  } else {
+    const now = new Date();
+    switch (range) {
+      case "week":
+        rangeStart = startOfWeek(now, { weekStartsOn: 1 });
+        rangeEnd = endOfWeek(now, { weekStartsOn: 1 });
+        break;
+      case "month":
+        rangeStart = subDays(startOfDay(now), 29);
+        rangeEnd = endOfDay(now);
+        break;
+      case "3months":
+        rangeStart = subDays(startOfDay(now), 89);
+        rangeEnd = endOfDay(now);
+        break;
+      default:
+        rangeStart = startOfDay(now);
+        rangeEnd = endOfDay(now);
+    }
   }
-} else {
-  const now = new Date();
-  switch (range) {
-    case "week":
-      rangeStart = startOfWeek(now, { weekStartsOn: 1 });
-      rangeEnd = endOfWeek(now, { weekStartsOn: 1 });
-      break;
-    case "month":
-      rangeStart = subDays(startOfDay(now), 29);
-      rangeEnd = endOfDay(now);
-      break;
-    case "3months":
-      rangeStart = subDays(startOfDay(now), 89);
-      rangeEnd = endOfDay(now);
-      break;
-    default:
-      rangeStart = startOfDay(now);
-      rangeEnd = endOfDay(now);
-  }
-}
 
   try {
     const floorMap = {};
