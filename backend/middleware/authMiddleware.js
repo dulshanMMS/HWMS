@@ -3,7 +3,7 @@ import User from '../models/User.js';
 
 // Email Validation
 export const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.com$/;
+    const emailRegex = /^[a-zA-Z0-9.]+@wiley\.com$/;
     return emailRegex.test(email);
 };
 
