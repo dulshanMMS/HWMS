@@ -82,11 +82,10 @@ export const getUsers = async (req, res) => {
     let users = [];
 
     if (teamId) {
-      // Only select needed fields, including correct lowercase `username`
-      users = await User.find({ teamId }).select("firstName lastName username");
+      users = await User.find({ teamId }).select("firstName lastName username email");
     } else {
       // return all users if no teamId is provided
-      users = await User.find().select("firstName lastName username");
+      users = await User.find().select("firstName lastName username email");
     }
 
     res.json(users);

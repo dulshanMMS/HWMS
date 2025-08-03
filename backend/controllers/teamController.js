@@ -140,7 +140,7 @@ export const getAllUsers = async (req, res) => {
   try {
     const { teamId } = req.query;
     const filter = teamId ? { teamId } : {};
-    const users = await User.find(filter).select('firstName lastName username teamId');
+    const users = await User.find(filter).select('firstName lastName username teamId email');
     res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
