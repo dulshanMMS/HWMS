@@ -15,7 +15,7 @@ import {
   createCancellationNotification,
   getNotificationPreferences,
   updateNotificationPreferences,
-  triggerBookingReminderEmails, // Add this import
+  triggerBookingReminderEmails,// Add this import
 } from '../controllers/notificationController.js';
 import { verifyToken, authenticateUser, isAdmin } from '../middleware/authMiddleware.js';
 
