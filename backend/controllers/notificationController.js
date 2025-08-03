@@ -8,13 +8,11 @@ import Notification from '../models/Notification.js';
 
 export const getUserOwnNotifications = async (req, res) => {
   try {
-    console.log('req.user:', req.user);
     if (!req.user || !req.user.id) {
       return res.status(401).json({ message: 'User not authenticated', user: req.user });
     }
     const { page = 1, limit = 10, filter = 'all' } = req.query;
     const userId = req.user.id;
-    console.log(`Fetching notifications for userId: ${userId}`);
     const notifications = await NotificationService.getNotifications(page, limit, userId, filter);
     res.json(notifications);
   } catch (error) {
@@ -25,7 +23,6 @@ export const getUserOwnNotifications = async (req, res) => {
 
 export const getAdminOwnNotifications = async (req, res) => {
   try {
-    console.log('req.user:', req.user);
     if (!req.user || !req.user.id) {
       return res.status(401).json({ message: 'User not authenticated', user: req.user });
     }
@@ -38,7 +35,6 @@ export const getAdminOwnNotifications = async (req, res) => {
     }
     const { page = 1, limit = 10, filter = 'all' } = req.query;
     const userId = req.user.id;
-    console.log(`Fetching admin notifications for userId: ${userId}`);
     const notifications = await NotificationService.getNotifications(page, limit, userId, filter);
     res.json(notifications);
   } catch (error) {
@@ -137,8 +133,6 @@ export const deleteAllNotifications = async (req, res) => {
   }
 };
 
-
-
 export const sendBulkNotification = async (req, res) => {
   try {
     const { recipients, title, message, type, emailSubject } = req.body;
@@ -172,7 +166,6 @@ export const createBookingNotification = async (req, res) => {
 export const createCancellationNotification = async (req, res) => {
   try {
     const { slotId, userName, date, entryTime, type } = req.body;
-    console.log(`Received cancellation request: slotId=${slotId}, userName=${userName}, date=${date}, entryTime=${entryTime}, type=${type}`);
     const notification = await NotificationService.triggerCancellationNotification({
       slotId,
       userName,
@@ -191,7 +184,6 @@ export const getNotificationPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
     const preferences = await getPreferencesService(userId);
-    console.log(`Fetched preferences for user ${userId}: ${JSON.stringify(preferences)}`);
     res.json(preferences);
   } catch (error) {
     console.error('Error in getNotificationPreferences:', error);
@@ -203,7 +195,6 @@ export const updateNotificationPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
     const preferences = req.body;
-    console.log(`Updating preferences for user ${userId}: ${JSON.stringify(preferences)}`);
     // Validate preferences
     if (!preferences || typeof preferences !== 'object') {
       return res.status(400).json({ message: 'Invalid preferences format' });
@@ -212,7 +203,6 @@ export const updateNotificationPreferences = async (req, res) => {
       ...preferences,
       bookingReminder: { ...preferences.bookingReminder, inApp: true }
     });
-    console.log(`Updated preferences for user ${userId}: ${JSON.stringify(updatedPreferences)}`);
     res.json(updatedPreferences);
   } catch (error) {
     console.error('Error in updateNotificationPreferences:', error);

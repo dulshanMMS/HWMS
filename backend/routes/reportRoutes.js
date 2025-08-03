@@ -11,7 +11,9 @@ import {
   allBookings,
   getTeamStats,
   getTeamSuggestions,
-  getUserSuggestions
+  getUserSuggestions,
+  getBookingPredictions,
+  
 } from '../controllers/reportController.js';
 
 const router = express.Router();
@@ -36,13 +38,17 @@ router.get('/floor-usage', floorUsage);
 
 // Get all bookings (admin only)
 router.get('/all-bookings', allBookings);
-// routes/reportRoutes.js
-//router.get('/all-bookings', verifyToken, allBookings);
+
 // Team stats for a given team name
 router.get('/team-stats', getTeamStats);
 
-// NEW: Autocomplete endpoints
+// Autocomplete endpoints
 router.get('/team-suggestions', getTeamSuggestions);
 router.get('/user-suggestions', getUserSuggestions);
+
+// Booking predictions endpoint
+router.get('/predictions', getBookingPredictions);
+
+
 
 export default router;
