@@ -59,7 +59,7 @@ router.get("/by-team", async (req, res) => {
     const { teamId } = req.query;
     if (!teamId) return res.status(400).json({ error: "teamId is required" });
 
-    const users = await User.find({ teamId }).select("username firstName lastName");
+    const users = await User.find({ teamId }).select("username firstName lastName email");
     res.json(users);
   } catch (error) {
     console.error("Error fetching users by teamId:", error);

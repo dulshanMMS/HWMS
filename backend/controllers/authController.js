@@ -23,7 +23,7 @@ export const signup = async (req, res) => {
   }
 
   if (!validateEmail(email)) {
-    return res.status(400).json({ error: "Invalid email format. Must include '@' and end with '.com'." });
+    return res.status(400).json({ error: "Invalid email format. Must end with '@wiley.com'." });
   }
 
   if (!validatePassword(password)) {
@@ -80,7 +80,7 @@ export const signin = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, username: user.username, role: user.role },
+      { id: user._id, username: user.username, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );

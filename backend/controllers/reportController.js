@@ -3,7 +3,124 @@ import ParkingSlot from '../models/ParkingSlots.js';
 import SeatingSlot from '../models/SeatingSlots.js';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
 
+export const getBookingPredictions = async (req, res) => {
+  try {
+    const { timePeriod, dayOfWeek } = req.query;
+
+    // Validate inputs
+    if (!timePeriod || !dayOfWeek) {
+      console.error('Validation failed: timePeriod and dayOfWeek are required', { timePeriod, dayOfWeek });
+      return res.status(400).json({ error: 'timePeriod and dayOfWeek are required' });
+    }
+
+    // Normalize dayOfWeek to lowercase
+    const normalizedDayOfWeek = dayOfWeek.toLowerCase();
+    if (!['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(normalizedDayOfWeek)) {
+      console.error('Invalid dayOfWeek:', dayOfWeek);
+      return res.status(400).json({ error: 'Invalid dayOfWeek' });
+    }
+
+    // Define time range based on timePeriod
+    let startDate;
+    const endDate = new Date();
+    switch (timePeriod) {
+      case 'week':
+        startDate = subDays(endDate, 7);
+        break;
+      case 'month':
+        startDate = subDays(endDate, 30);
+        break;
+      case '3months':
+        startDate = subDays(endDate, 90);
+        break;
+      default:
+        console.error('Invalid timePeriod:', timePeriod);
+        return res.status(400).json({ error: 'Invalid timePeriod' });
+    }
+    startDate = startOfDay(startDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Fetch bookings from SeatingSlot and ParkingSlot
+    const seatingSlots = await SeatingSlot.find();
+    const parkingSlots = await ParkingSlot.find();
+
+    // Filter bookings by date range and day of week
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const filteredSeatBookings = seatingSlots.flatMap(slot =>
+      slot.bookings.filter(booking => {
+        const bookingDate = new Date(booking.date);
+        return (
+          bookingDate >= startDate &&
+          bookingDate <= endDate &&
+          dayNames[bookingDate.getUTCDay()] === normalizedDayOfWeek
+        );
+      })
+    );
+
+    // Map parking bookings with parent slot's floor
+    const filteredParkingBookings = parkingSlots.flatMap(slot =>
+      slot.bookings
+        .filter(booking => {
+          const bookingDate = new Date(booking.date);
+          return (
+            bookingDate >= startDate &&
+            bookingDate <= endDate &&
+            dayNames[bookingDate.getUTCDay()] === normalizedDayOfWeek
+          );
+        })
+        .map(booking => ({
+          ...booking,
+          floor: slot.floor.toString() // Attach parent slot's floor
+        }))
+    );
+
+    // Calculate total, seat, and parking bookings
+    const totalBookings = filteredSeatBookings.length + filteredParkingBookings.length;
+    const seatBookings = filteredSeatBookings.length;
+    const parkingBookings = filteredParkingBookings.length;
+
+    // Aggregate seat bookings by floor
+    const seatBookingsByFloor = filteredSeatBookings.reduce((acc, booking) => {
+      const floor = booking.floor?.toString() || 'Unknown';
+      const existing = acc.find(item => item.floor === floor);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        acc.push({ floor, count: 1 });
+      }
+      return acc;
+    }, []);
+
+    // Aggregate parking bookings by floor
+    const parkingBookingsByFloor = filteredParkingBookings.reduce((acc, booking) => {
+      const floor = booking.floor || 'Unknown';
+      const existing = acc.find(item => item.floor === floor);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        acc.push({ floor, count: 1 });
+      }
+      return acc;
+    }, []);
+
+    const predictions = {
+      totalBookings,
+      seatBookings,
+      parkingBookings,
+      seatBookingsByFloor,
+      parkingBookingsByFloor,
+    };
+
+    res.status(200).json({ predictions });
+  } catch (error) {
+    console.error('Error in getBookingPredictions:', error.message, error.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Other controllers (unchanged from provided file)
 export const floorUsage = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -152,31 +269,22 @@ export const teamLookup = async (req, res) => {
     const { team } = req.query;
     if (!team) return res.status(400).json({ error: 'team required' });
 
-    console.log('Searching for team:', team);
-
     const teamData = await Team.findOne({ 
       teamName: new RegExp(`^${team.trim()}$`, 'i') 
     });
 
     if (!teamData) {
-      console.log('Team not found in database');
       return res.status(404).json({ error: 'Team not found' });
     }
-
-    console.log('Found team:', teamData.teamName, 'ID:', teamData.teamId);
 
     const users = await User.find({ teamId: teamData.teamId })
       .select("username firstName lastName teamId _id vehicleNumber");
     
     if (!users.length) {
-      console.log('No users found for team ID:', teamData.teamId);
       return res.status(404).json({ error: 'No users found for this team' });
     }
 
-    console.log('Found users:', users.map(u => u.username));
-
     const seatingMembers = await SeatingSlot.find({ teamId: teamData.teamId });
-    console.log('Found seating members:', seatingMembers.length);
     
     const parkingSlots = await ParkingSlot.find();
 
@@ -192,8 +300,6 @@ export const teamLookup = async (req, res) => {
           b.userName?.toLowerCase() === user.username.toLowerCase()
         )
       );
-
-      console.log(`User ${user.username}: ${seatBookings.length} seat bookings, ${parkingBookings.length} parking bookings`);
 
       return {
         id: user._id,
@@ -224,14 +330,12 @@ export const teamLookup = async (req, res) => {
       };
     }));
 
-    console.log('Returning results for', results.length, 'users');
     res.json(results);
   } catch (err) {
     console.error('Error in team lookup:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
-
 
 export const analytics = async (req, res) => {
   try {
@@ -349,7 +453,6 @@ export const userBookings = async (req, res) => {
   }
 };
 
-
 export const recentBookings = async (req, res) => {
   try {
     const seatingMembers = await SeatingSlot.find();
@@ -400,9 +503,9 @@ export const recentBookings = async (req, res) => {
 
     const parkingData = parkingSlots.flatMap(slot =>
       slot.bookings
-        .filter(booking => {
-          const bookingDate = new Date(booking.date);
-          return booking.date && !isNaN(bookingDate) && bookingDate >= today;
+        .filter(parking => {
+          const bookingDate = new Date(parking.date);
+          return parking.date && !isNaN(bookingDate) && bookingDate >= today;
         })
         .map(booking => {
           const userInfo = userTeamMap[booking.userName] || {
@@ -436,8 +539,6 @@ export const recentBookings = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch recent bookings' });
   }
 };
-
-
 
 export const allBookings = async (req, res) => {
     try {
@@ -552,37 +653,28 @@ export const allBookings = async (req, res) => {
       console.error('Detailed error in all-bookings endpoint:', error);
       res.status(500).json({ error: 'Failed to fetch bookings' });
     }
-  };// All bookings can get for date range
+};
 
 export const getTeamStats = async (req, res) => {
   try {
     const { teamName, startDate, endDate } = req.query;
     if (!teamName) return res.status(400).json({ message: 'Team name is required' });
 
-    console.log('Getting team stats for:', teamName);
-
     const team = await Team.findOne({ 
       teamName: new RegExp(`^${teamName.trim()}$`, 'i') 
     });
 
     if (!team) {
-      console.log('Team not found:', teamName);
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    console.log('Found team:', team.teamName, 'ID:', team.teamId);
-
     const members = await User.find({ teamId: team.teamId });
     const memberUsernames = members.map(m => m.username);
-
-    console.log('Team members:', memberUsernames);
 
     const start = startDate ? new Date(startDate) : new Date('2000-01-01');
     const end = endDate ? new Date(endDate) : new Date('2100-01-01');
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
-
-    console.log('Date range:', start.toISOString(), 'to', end.toISOString());
 
     const dateInRange = (date) => {
       const d = new Date(date);
@@ -638,7 +730,6 @@ export const getTeamStats = async (req, res) => {
       members: memberStats
     };
 
-    console.log('Returning team stats:', result);
     res.json(result);
   } catch (error) {
     console.error('Error fetching team stats:', error);
@@ -654,9 +745,8 @@ export const getTeamSuggestions = async (req, res) => {
       return res.json([]);
     }
 
-    // Normalize query: remove "team" prefix, trim spaces, and convert to lowercase
     const normalizedQuery = query
-      .replace(/^team\s+/i, '') // Remove "team" or "Team" prefix
+      .replace(/^team\s+/i, '')
       .trim()
       .toLowerCase();
 
@@ -683,9 +773,6 @@ export const getTeamSuggestions = async (req, res) => {
   }
 };
 
-
-
-// In reportController.js
 export const getUserSuggestions = async (req, res) => {
   try {
     const { query } = req.query;
@@ -703,7 +790,7 @@ export const getUserSuggestions = async (req, res) => {
       .populate('teamId', 'teamName')
       .limit(10);
     const suggestions = users.map(user => ({
-      value: `${user.firstName} ${user.lastName}`, // Use full name
+      value: `${user.firstName} ${user.lastName}`,
       label: `${user.firstName} ${user.lastName}`,
       name: `${user.firstName} ${user.lastName}`,
       team: user.teamId?.teamName || 'No Team',
